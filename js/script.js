@@ -18,7 +18,7 @@ if (!firebase.apps.length) {
 // Explicitly get database reference with the EU URL
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
 
-console.log("Firebase initialized");
+console.log("Firebase initialized - VERSION 5 LOADED");
 
 // Global State
 let currentPlayer = {
