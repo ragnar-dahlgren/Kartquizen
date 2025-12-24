@@ -15,11 +15,12 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-console.log("Firebase initialized - VERSION 12 LOADED (Two-Phase Round + Click Fix)");
+console.log("Firebase initialized - VERSION 13 LOADED (Persistence + Control Flow)");
 
 // --- Global State ---
 let currentPlayer = { id: null, name: null, score: 0 };
 let currentRoomId = null;
+let currentQuizId = null; // New for persistence
 let map = null;
 let tempMarker = null;
 let quizDraft = [];
@@ -40,6 +41,7 @@ const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
 const mapPickerUI = document.getElementById('map-picker-ui');
 const statusMessage = document.getElementById('status-message');
+const loadQuizSection = document.getElementById('load-quiz-section'); // New
 
 // Game UI Elements
 const questionOverlay = document.getElementById('question-overlay');
@@ -53,6 +55,9 @@ const feedbackOverlay = document.getElementById('feedback-overlay');
 const feedbackText = document.getElementById('feedback-text');
 const feedbackSubtext = document.getElementById('feedback-subtext');
 const nextQuestionBtn = document.getElementById('next-question-btn');
+const gotoLeaderboardBtn = document.getElementById('goto-leaderboard-btn'); // New
+const leaderboardOverlay = document.getElementById('leaderboard-overlay'); // New
+const liveLeaderboardList = document.getElementById('live-leaderboard-list'); // New
 const submitGuessBtn = document.getElementById('submit-guess-btn');
 const pickerInstruction = document.getElementById('picker-instruction');
 
@@ -68,9 +73,14 @@ const cancelPickerBtn = document.getElementById('cancel-picker-btn');
 const testQuestionBtn = document.getElementById('test-question-btn');
 const lobbyStartBtn = document.getElementById('lobby-start-btn');
 const testRunBtn = document.getElementById('test-run-btn');
+const saveQuizBtn = document.getElementById('save-quiz-btn'); // New
+const loadQuizBtn = document.getElementById('load-quiz-btn'); // New
 
 const usernameInput = document.getElementById('username-input');
 const roomCodeInput = document.getElementById('room-code-input');
+const quizLoadCode = document.getElementById('quiz-load-code'); // New
+const currentQuizIdDisplay = document.getElementById('current-quiz-id'); // New
+
 const qText = document.getElementById('q-text');
 const qImage = document.getElementById('q-image');
 const qTime = document.getElementById('q-time');
@@ -108,6 +118,9 @@ function initMap(interactive = false) {
             maxBounds: [[-90, -180], [90, 180]]
         });
 
+        // "Greenwich utzoomat" - Standard view
+        map.setView([20, 0], 2);
+
         fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
             .then(res => res.json())
             .then(data => {
@@ -119,9 +132,7 @@ function initMap(interactive = false) {
             });
     }
 
-    // Reset map interactions
     map.off('click');
-
     if (interactive) {
         map.on('click', onMapClick);
         document.getElementById('map').style.cursor = "crosshair";
@@ -130,7 +141,6 @@ function initMap(interactive = false) {
     }
 }
 
-// Helper to strictly enable map clicking (Fixes Bug)
 function enableMapInteraction() {
     if (!map) return;
     map.off('click');
@@ -138,7 +148,6 @@ function enableMapInteraction() {
     document.getElementById('map').style.cursor = "crosshair";
 }
 
-// Helper to disable
 function disableMapInteraction() {
     if (!map) return;
     map.off('click');
@@ -148,8 +157,13 @@ function disableMapInteraction() {
 
 // --- Navigation & Basic Logic ---
 hostModeBtn.addEventListener('click', () => {
-    startScreen.classList.add('hidden');
-    hostScreen.classList.remove('hidden');
+    // Toggle Load Quiz Section
+    if (loadQuizSection.classList.contains('hidden')) {
+        loadQuizSection.classList.remove('hidden');
+    } else {
+        startScreen.classList.add('hidden');
+        hostScreen.classList.remove('hidden');
+    }
 });
 
 backToStartBtn.addEventListener('click', () => {
@@ -157,15 +171,57 @@ backToStartBtn.addEventListener('click', () => {
     startScreen.classList.remove('hidden');
 });
 
+// --- PERSISTENCE LOGIC (Save/Load) ---
+
+saveQuizBtn.addEventListener('click', () => {
+    if (quizDraft.length === 0) { alert("Inga frågor att spara!"); return; }
+
+    // Generate new ID if not existing
+    if (!currentQuizId) {
+        currentQuizId = "QUIZ-" + Math.floor(1000 + Math.random() * 9000); // Ex: QUIZ-4521
+    }
+
+    db.ref('quizzes/' + currentQuizId).set({
+        questions: quizDraft,
+        created: Date.now()
+    }).then(() => {
+        currentQuizIdDisplay.textContent = `ID: ${currentQuizId} (Sparat!)`;
+        alert(`Quiz sparat!\nID: ${currentQuizId}\n\nSpara detta ID för att ladda quizet senare.`);
+    });
+});
+
+loadQuizBtn.addEventListener('click', () => {
+    const id = quizLoadCode.value.trim().toUpperCase();
+    if (!id) { alert("Ange ett Quiz-ID!"); return; }
+
+    db.ref('quizzes/' + id).once('value', snap => {
+        if (snap.exists()) {
+            const data = snap.val();
+            quizDraft = data.questions || [];
+            currentQuizId = id;
+            updateQuestionsList();
+
+            // Go to Host Screen
+            startScreen.classList.add('hidden');
+            hostScreen.classList.remove('hidden');
+            currentQuizIdDisplay.textContent = `ID: ${currentQuizId}`;
+        } else {
+            alert("Hittade inget quiz med det IDt.");
+        }
+    });
+});
+
+
 // --- Map Picker (Host Mode) ---
 pickLocationBtn.addEventListener('click', () => {
     hostScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
     mapPickerUI.classList.remove('hidden');
-    submitGuessBtn.classList.add('hidden'); // Hide game-specific button
-    confirmLocationBtn.classList.remove('hidden'); // Show host button
+    submitGuessBtn.classList.add('hidden');
+    confirmLocationBtn.classList.remove('hidden');
     initMap(true);
 
+    // If saving/loading coordinates
     const lat = parseFloat(qLat.value);
     const lng = parseFloat(qLng.value);
     if (!isNaN(lat) && !isNaN(lng)) {
@@ -177,11 +233,9 @@ pickLocationBtn.addEventListener('click', () => {
 });
 
 function onMapClick(e) {
-    // Shared Click Logic
     if (tempMarker) map.removeLayer(tempMarker);
     tempMarker = L.marker(e.latlng).addTo(map);
     selectedLocation = e.latlng;
-
     if (pickerLat) updatePickerDisplay(e.latlng.lat, e.latlng.lng);
 }
 
@@ -204,7 +258,7 @@ confirmLocationBtn.addEventListener('click', () => {
 cancelPickerBtn.addEventListener('click', () => {
     gameScreen.classList.add('hidden');
     mapPickerUI.classList.add('hidden');
-    if (!gameQuestions.length || isGlobalHost && !isDryRun && gameQuestions.length > 0) {
+    if (!gameQuestions.length || ((isGlobalHost && !isDryRun) && gameQuestions.length > 0)) {
         hostScreen.classList.remove('hidden');
     }
     if (tempMarker) map.removeLayer(tempMarker);
@@ -260,6 +314,7 @@ function updateQuestionsList() {
     qCount.textContent = quizDraft.length;
     startQuizBtn.disabled = quizDraft.length === 0;
     testRunBtn.disabled = quizDraft.length === 0;
+    saveQuizBtn.disabled = quizDraft.length === 0;
 }
 
 window.removeQuestion = (index) => {
@@ -268,7 +323,7 @@ window.removeQuestion = (index) => {
 };
 
 
-// --- GAME ENGINE (Revised) ---
+// --- GAME ENGINE ---
 
 testRunBtn.addEventListener('click', () => {
     gameQuestions = [...quizDraft];
@@ -276,17 +331,17 @@ testRunBtn.addEventListener('click', () => {
     isDryRun = true;
     hostScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
-    initMap(false); // Map waits for phase 2
+    initMap(false);
 
     currentQIndex = 0;
     document.getElementById('round-info').textContent = "TEST MODE";
-    startQuestionPhase1(); // Start PHASE 1
+    startQuestionPhase1();
 });
 
 // Lobby Start (Real Game)
 startQuizBtn.addEventListener('click', () => {
     gameQuestions = [...quizDraft];
-    const name = usernameInput.value.trim() || "Host";
+    const name = usernameInput.value.trim() || "Lekledare";
     const roomId = Math.random().toString(36).substring(2, 6).toUpperCase();
     currentRoomId = roomId;
 
@@ -317,13 +372,16 @@ function enterLobby(roomId, isHost) {
 
     if (isHost) {
         lobbyStartBtn.classList.remove('hidden');
-        lobbyStatusText.textContent = "Du är Host. Starta när alla är med.";
+        lobbyStatusText.textContent = "Du är Lekledare. Starta när alla är med.";
     } else {
         lobbyStartBtn.classList.add('hidden');
-        lobbyStatusText.textContent = "Väntar på att Host ska starta spelet...";
+        lobbyStatusText.textContent = "Väntar på att Lekledaren ska starta spelet...";
 
         db.ref(`rooms/${roomId}/status`).on('value', (snap) => {
-            if (snap.val() === 'game_active') {
+            // Game State Sync for Players
+            const state = snap.val();
+            if (state === 'game_active') {
+                // Trigger fetch questions if not saving them locally
                 db.ref(`rooms/${roomId}/questions`).once('value', qSnap => {
                     gameQuestions = qSnap.val();
                     startGameFlow();
@@ -345,7 +403,7 @@ lobbyStartBtn.addEventListener('click', () => {
 function startGameFlow() {
     lobbyScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
-    initMap(false); // Map hidden initially
+    initMap(false);
     currentQIndex = 0;
     startQuestionPhase1();
 }
@@ -357,6 +415,9 @@ function startQuestionPhase1() {
         return;
     }
 
+    // MAP RESET (Crucial Requirement)
+    if (map) map.setView([20, 0], 2);
+
     const question = gameQuestions[currentQIndex];
     document.getElementById('round-info').textContent = `Fråga: ${currentQIndex + 1}/${gameQuestions.length}`;
 
@@ -366,17 +427,17 @@ function startQuestionPhase1() {
     if (answerLine) map.removeLayer(answerLine);
     if (tempMarker) map.removeLayer(tempMarker);
 
-    disableMapInteraction(); // Prevent clicks during reading
+    disableMapInteraction();
 
     // UI: Maximize Overlay
     feedbackOverlay.classList.add('hidden');
+    leaderboardOverlay.classList.add('hidden'); // Clear leaderboard
     questionOverlay.classList.remove('hidden');
-    questionBox.classList.remove('minimized'); // CSS class for big view
-    mapPickerUI.classList.add('hidden'); // Hide picker buttons
+    questionBox.classList.remove('minimized');
+    mapPickerUI.classList.add('hidden');
 
     gameQuestionText.textContent = question.text;
 
-    // Show Image Large
     if (question.image) {
         gameQuestionImage.src = question.image;
         gameImageContainer.classList.remove('hidden');
@@ -388,7 +449,6 @@ function startQuestionPhase1() {
     timerText.textContent = "Läs frågan...";
     timerFill.style.width = "100%";
 
-    // Wait 4 seconds then start Phase 2
     setTimeout(() => {
         startQuestionPhase2(question);
     }, 4000);
@@ -396,21 +456,16 @@ function startQuestionPhase1() {
 
 // --- PHASE 2: ACTION (Guessing) ---
 function startQuestionPhase2(question) {
-    // UI: Minimize Overlay
-    questionBox.classList.add('minimized'); // Move to bottom
-    if (question.image) gameImageContainer.classList.add('mini-img'); // Update image style? Or hide it? User said "minimalt". 
+    questionBox.classList.add('minimized');
+    if (question.image) gameImageContainer.classList.add('mini-img');
 
-    // Enable Map & Tools
     mapPickerUI.classList.remove('hidden');
     submitGuessBtn.classList.remove('hidden');
     confirmLocationBtn.classList.add('hidden');
-    cancelPickerBtn.classList.add('hidden');
 
-    // Important: Re-enable map clicks!
     enableMapInteraction();
     pickerInstruction.textContent = "Klicka på kartan nu!";
 
-    // Start Timer
     let timeLeft = question.timeLimit || 30;
     timerText.textContent = timeLeft;
 
@@ -429,12 +484,9 @@ function startQuestionPhase2(question) {
     }, 1000);
 }
 
-
 // Player Guess Logic
 submitGuessBtn.addEventListener('click', () => {
     if (!tempMarker) { alert("Välj en plats först!"); return; }
-
-    // Lock guess
     playerGuessMarker = tempMarker;
     tempMarker = null;
     disableMapInteraction();
@@ -443,8 +495,10 @@ submitGuessBtn.addEventListener('click', () => {
     mapPickerUI.classList.add('hidden');
 
     feedbackOverlay.classList.remove('hidden');
-    feedbackText.textContent = "Väntar på rättning...";
-    feedbackSubtext.textContent = "";
+    feedbackText.textContent = "Registrerat!";
+    feedbackSubtext.textContent = "Väntar på rättning...";
+
+    // In multiplayer, here we would push to Firebase: rooms/{id}/guesses/{uid} = latlng
 
     if (isDryRun) {
         clearInterval(timerInterval);
@@ -456,22 +510,25 @@ function timeIsUp() {
     disableMapInteraction();
     questionOverlay.classList.add('hidden');
     mapPickerUI.classList.add('hidden');
-
-    if (!playerGuessMarker) {
-        feedbackText.textContent = "Tiden ute!";
-        feedbackSubtext.textContent = "Du gissade inte.";
-    }
-
+    feedbackText.textContent = "Tiden ute!";
+    feedbackSubtext.textContent = "Väntar på rättning...";
     showRoundResult();
 }
+
+// --- RESULT & LEADERBOARD FLOW ---
 
 function showRoundResult() {
     const question = gameQuestions[currentQIndex];
     const correctLatLng = question.correctAnswer;
 
+    // Show Correct Answer
     correctMarker = L.marker([correctLatLng.lat, correctLatLng.lng], {
         icon: L.divIcon({ className: 'correct-marker', html: '📍', iconSize: [30, 30] })
     }).addTo(map);
+
+    // Calc score for THIS player (Local logic for now, multiplayer needs sync)
+    let roundPoints = 0;
+    let distText = "Inget svar";
 
     if (playerGuessMarker) {
         const guessLatLng = playerGuessMarker.getLatLng();
@@ -480,37 +537,62 @@ function showRoundResult() {
         answerLine = L.polyline([guessLatLng, correctLatLng], { color: 'red', dashArray: '5, 10' }).addTo(map);
         map.fitBounds(answerLine.getBounds(), { padding: [50, 50] });
 
-        feedbackOverlay.classList.remove('hidden');
-        feedbackText.textContent = `${Math.round(distKm)} km`;
-        feedbackSubtext.textContent = "från målet";
-
-        const points = Math.max(0, 1000 - Math.round(distKm / 2));
-        currentPlayer.score += points;
-        document.getElementById('player-score').textContent = `Poäng: ${currentPlayer.score}`;
+        distText = `${Math.round(distKm)} km`;
+        roundPoints = Math.max(0, 1000 - Math.round(distKm / 2));
     } else {
         map.setView([correctLatLng.lat, correctLatLng.lng], 5);
-        feedbackText.textContent = "RÄTT SVAR";
-        feedbackSubtext.textContent = "Här var det!";
+        // Clean view of correct location
     }
 
+    currentPlayer.score += roundPoints;
+
+    feedbackOverlay.classList.remove('hidden');
+    feedbackText.textContent = roundPoints > 0 ? `+${roundPoints} p` : "0 p";
+    feedbackSubtext.textContent = distText;
+    document.getElementById('player-score').textContent = `Poäng: ${currentPlayer.score}`;
+
+    // Host controls flow to LEADERBOARD
     if (isGlobalHost) {
-        nextQuestionBtn.classList.remove('hidden');
+        gotoLeaderboardBtn.classList.remove('hidden');
+        nextQuestionBtn.classList.add('hidden'); // Ensure next btn (in leaderboard) is hidden till then
     }
 }
 
+gotoLeaderboardBtn.addEventListener('click', () => {
+    // Transition to Leaderboard State
+    feedbackOverlay.classList.add('hidden');
+    leaderboardOverlay.classList.remove('hidden');
+
+    // Update Leaderboard List
+    liveLeaderboardList.innerHTML = "";
+
+    // Dry Run / Local: Just show me
+    // Multiplyer: Fetch from Firebase players list sorted by score
+    // Mocking for Dry Run:
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>${currentPlayer.name || "Jag"}</strong>: ${currentPlayer.score} p`;
+    liveLeaderboardList.appendChild(li);
+
+    // The "Next Question" button is inside the leaderboard overlay
+});
+
 nextQuestionBtn.addEventListener('click', () => {
-    nextQuestionBtn.classList.add('hidden');
+    leaderboardOverlay.classList.add('hidden');
     currentQIndex++;
     startQuestionPhase1(); // Loop back to Phase 1
 });
 
+
 function endGame() {
     feedbackOverlay.classList.remove('hidden');
+    leaderboardOverlay.classList.add('hidden'); // Ensure hidden
     feedbackText.textContent = "SPELET SLUT";
     feedbackSubtext.textContent = `Din totalpoäng: ${currentPlayer.score}`;
-    nextQuestionBtn.textContent = "Avsluta";
-    nextQuestionBtn.classList.remove('hidden');
-    nextQuestionBtn.onclick = () => window.location.reload();
+
+    // Hijack the goto button for restart
+    gotoLeaderboardBtn.textContent = "Avsluta / Starta Om";
+    gotoLeaderboardBtn.classList.remove('hidden');
+    gotoLeaderboardBtn.onclick = () => window.location.reload();
 }
 
 // --- Utilities ---
