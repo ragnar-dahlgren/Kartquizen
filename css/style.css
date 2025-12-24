@@ -279,9 +279,32 @@ input[type="number"]:focus {
 
 .game-ui {
     position: absolute;
+    z-index: 1000;
+}
+
+.overlay-top {
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+}
+
+.overlay-right {
     top: 20px;
     right: 20px;
-    z-index: 1000;
+}
+
+.overlay-center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2rem;
+    border-radius: 20px;
+    border: 2px solid white;
 }
 
 .overlay-bottom {
@@ -310,4 +333,70 @@ input[type="number"]:focus {
     font-family: monospace;
     font-size: 1.1rem;
     color: #4caf50;
+}
+
+/* Question Overlay Specifics */
+.question-box h3 {
+    margin-bottom: 0.5rem;
+    margin-top: 0;
+}
+
+#game-image-container img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.timer-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+}
+
+#timer-fill {
+    height: 100%;
+    background: #4caf50;
+    width: 100%;
+    transition: width 1s linear;
+}
+
+#timer-text {
+    font-size: 0.8rem;
+    margin-top: 5px;
+    opacity: 0.8;
+}
+
+/* Lobby Specifics */
+#qrcode-container {
+    background: white;
+    padding: 15px;
+    border-radius: 12px;
+    display: inline-block;
+    margin: 1.5rem 0;
+}
+
+#lobby-room-code {
+    font-family: monospace;
+    font-size: 4rem;
+    letter-spacing: 5px;
+    color: #ffeb3b;
+}
+
+#lobby-players-list {
+    list-style: none;
+    max-height: 200px;
+    overflow-y: auto;
+    text-align: left;
+}
+
+#lobby-players-list li {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    font-weight: 600;
 }

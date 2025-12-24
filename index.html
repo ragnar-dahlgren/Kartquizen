@@ -44,6 +44,7 @@
             <h2>Skapa Frågor</h2>
             <div class="header-actions">
                 <button id="back-to-start-btn" class="btn small">← Tillbaka</button>
+                <button id="test-run-btn" class="btn secondary small">▶ Provspela Hela</button>
             </div>
 
             <div class="question-form">
@@ -73,7 +74,7 @@
                 </div>
 
                 <div class="form-actions">
-                    <button id="test-question-btn" class="btn secondary">👁️ Testa</button>
+                    <button id="test-question-btn" class="btn secondary">👁️ Testa Fråga</button>
                     <button id="add-question-btn" class="btn primary">Lägg till Fråga</button>
                 </div>
             </div>
@@ -114,23 +115,43 @@
         <div id="game-screen" class="hidden">
             <div id="map"></div>
 
-            <!-- Map Overlay UI -->
-            <div class="game-ui overlay-top">
-                <div class="score-board glass-panel-mini">
-                    <span id="player-score">Spelare: 0</span>
-                    <span id="round-info">Väntar...</span>
+            <!-- Question Overlay (Top) -->
+            <div id="question-overlay" class="game-ui overlay-top hidden">
+                <div class="glass-panel-mini question-box">
+                    <h3 id="game-question-text">Laddar fråga...</h3>
+                    <div id="game-image-container" class="hidden">
+                        <img id="game-question-image" src="" alt="Frågebild">
+                    </div>
+                    <div class="timer-bar">
+                        <div id="timer-fill"></div>
+                    </div>
+                    <div id="timer-text">30</div>
                 </div>
             </div>
 
-            <!-- Interaction Overlay (For picking location) -->
+            <!-- Feedback Overlay (Middle/Notification) -->
+            <div id="feedback-overlay" class="game-ui overlay-center hidden">
+                <h1 id="feedback-text">RÄTT!</h1>
+                <p id="feedback-subtext">+500 poäng</p>
+                <button id="next-question-btn" class="btn primary hidden">Nästa Fråga →</button>
+            </div>
+
+            <!-- Score Overlay (Top Right) -->
+            <div class="game-ui overlay-right">
+                <div class="glass-panel-mini">
+                    <span id="player-score">Poäng: 0</span>
+                    <span id="round-info">Runda: -/-</span>
+                </div>
+            </div>
+
+            <!-- Interaction Overlay (For picking location in game) -->
             <div id="map-picker-ui" class="overlay-bottom hidden">
                 <div class="glass-panel-mini">
-                    <p>Klicka på kartan för att sätta rätt svar.</p>
-                    <div class="coords-display">
-                        <span id="picker-lat">Lat: -</span>, <span id="picker-lng">Lng: -</span>
-                    </div>
+                    <p id="picker-instruction">Klicka på kartan för att välja.</p>
                     <button id="confirm-location-btn" class="btn primary">Bekräfta Plats</button>
                     <button id="cancel-picker-btn" class="btn secondary">Avbryt</button>
+                    <!-- Game specific confirm button -->
+                    <button id="submit-guess-btn" class="btn primary hidden">Gissa Här!</button>
                 </div>
             </div>
         </div>
@@ -147,8 +168,15 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic -->
-    <script src="js/script.js?v=10"></script>
+    <!-- App Logic (v11 + forced reload check) -->
+    <script src="js/script.js?v=11"></script>
+    <script>
+        // Emergency Check for Cached HTML
+        if (!document.getElementById('lobby-screen')) {
+            alert("Du har en gammal version cachad! Vi tvingar en omladdning nu.");
+            window.location.reload(true);
+        }
+    </script>
 </body>
 
 </html>
