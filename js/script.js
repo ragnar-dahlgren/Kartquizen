@@ -65,8 +65,8 @@ function generateRoomId() {
 
 function initMap() {
     if (map) return;
-    map = L.map('map').setView([59.3293, 18.0686], 13); // Stockholm Default
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    map = L.map('map').setView([20, 0], 2); // Stockholm Default
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
         maxZoom: 19
