@@ -400,3 +400,40 @@ input[type="number"]:focus {
     border-radius: 8px;
     font-weight: 600;
 }
+/* Phase 2: Minimized Question Overlay */
+.question-box.minimized {
+    position: fixed;
+    bottom: 80px; /* Above map picker */
+    top: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 600px;
+    padding: 10px;
+    transition: all 0.5s ease;
+    background: rgba(0, 0, 0, 0.85); /* Darker for readability */
+}
+
+.question-box.minimized h3 {
+    font-size: 1rem;
+    margin: 0;
+    display: inline-block;
+}
+
+.question-box.minimized #timer-text {
+    display: inline-block;
+    margin-left: 10px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: #ffeb3b; 
+}
+
+/* Hide image in minimized mode to save space (or make tiny) */
+.mini-img {
+    display: none; 
+}
+
+.question-box {
+    transition: all 0.5s ease;
+}
+
