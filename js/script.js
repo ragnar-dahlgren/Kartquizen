@@ -15,20 +15,13 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-// Explicitly get database reference with the EU URL
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-
-console.log("Firebase initialized - VERSION 5 LOADED");
+console.log("Firebase initialized - VERSION 6 LOADED (GeoJSON)");
 
 // Global State
-let currentPlayer = {
-    id: null,
-    name: null,
-    score: 0
-};
+let currentPlayer = { id: null, name: null, score: 0 };
 let currentRoomId = null;
 let map = null;
-let markers = {};
 
 // DOM Elements
 const startScreen = document.getElementById('start-screen');
@@ -38,8 +31,8 @@ const createRoomBtn = document.getElementById('create-room-btn');
 const joinRoomBtn = document.getElementById('join-room-btn');
 const usernameInput = document.getElementById('username-input');
 const roomCodeInput = document.getElementById('room-code-input');
-const playerScoreEl = document.getElementById('player-score'); // Ensure this ID exists in HTML
-const roundInfoEl = document.getElementById('round-info'); // Ensure this ID exists in HTML
+const playerScoreEl = document.getElementById('player-score');
+const roundInfoEl = document.getElementById('round-info');
 
 // Test Connection
 const connectedRef = db.ref(".info/connected");
@@ -65,12 +58,33 @@ function generateRoomId() {
 
 function initMap() {
     if (map) return;
-    map = L.map('map').setView([20, 0], 2); // Stockholm Default
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 19
-    }).addTo(map);
+
+    // Create Map (No initial tiles)
+    map = L.map('map', {
+        center: [20, 0],
+        zoom: 2,
+        minZoom: 2,
+        maxBounds: [[-90, -180], [90, 180]]
+    });
+
+    // Load GeoJSON World Map
+    fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+        .then(response => response.json())
+        .then(data => {
+            L.geoJSON(data, {
+                style: function (feature) {
+                    return {
+                        fillColor: '#2E4A28', // Dark Moss Green (Land)
+                        weight: 1,
+                        opacity: 1,
+                        color: '#1a1a1a', // Border color
+                        dashArray: '',
+                        fillOpacity: 1
+                    };
+                }
+            }).addTo(map);
+        })
+        .catch(err => console.error("Could not load map data:", err));
 }
 
 function showGameScreen() {
@@ -84,7 +98,7 @@ function createRoom() {
     if (!name) { alert("Ange ditt namn!"); return; }
 
     const roomId = generateRoomId();
-    const userId = db.ref().child('rooms').push().key; // Generate unique ID
+    const userId = db.ref().child('rooms').push().key;
 
     currentPlayer.name = name;
     currentPlayer.id = userId;
@@ -95,10 +109,7 @@ function createRoom() {
         status: 'waiting',
         createdAt: firebase.database.ServerValue.TIMESTAMP,
         players: {
-            [userId]: {
-                name: name,
-                score: 0
-            }
+            [userId]: { name: name, score: 0 }
         }
     };
 
@@ -128,7 +139,6 @@ function joinRoom() {
 
     roomRef.once('value', (snapshot) => {
         if (snapshot.exists()) {
-            // Add player
             roomRef.child('players/' + userId).set({
                 name: name,
                 score: 0
@@ -144,25 +154,18 @@ function joinRoom() {
 
 function enterRoom(roomId) {
     showGameScreen();
-    // Listen for room updates (e.g. other players)
     const playersRef = db.ref('rooms/' + roomId + '/players');
     playersRef.on('value', (snapshot) => {
         const players = snapshot.val();
-        console.log("Players updated:", players);
         updateUI(players);
     });
-
-    // Show Room ID in UI
     roundInfoEl.textContent = "Rum: " + roomId;
 }
 
 function updateUI(players) {
-    // Here we can update the leaderboard or show markers for other players
-    // For now, just logging
     let count = Object.keys(players || {}).length;
     playerScoreEl.textContent = `Spelare: ${count}`;
 }
 
-// Event Listeners
 createRoomBtn.addEventListener('click', createRoom);
 joinRoomBtn.addEventListener('click', joinRoom);

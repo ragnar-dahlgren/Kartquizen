@@ -14,7 +14,7 @@ body, html {
 
 /* Background - Dynamic Gradient */
 body {
-    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+    background: #1a1a1a;
     background-size: 400% 400%;
     animation: gradientOriginal 15s ease infinite;
 }
@@ -163,4 +163,9 @@ input[type="text"]:focus {
     padding: 10px 20px;
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Map Background (Water Color) */
+#map {
+    background-color: #E6F3FF; /* White with slight blue tint */
 }
