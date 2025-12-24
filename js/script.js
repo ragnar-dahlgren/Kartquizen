@@ -15,7 +15,7 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-console.log("Firebase initialized - VERSION 9 LOADED (Coords & Lobby Logic)");
+console.log("Firebase initialized - VERSION 10 LOADED (Lobby + QR)");
 
 // --- Global State ---
 let currentPlayer = { id: null, name: null };
@@ -24,10 +24,12 @@ let map = null;
 let tempMarker = null;
 let quizDraft = [];
 let selectedLocation = null;
+let isGlobalHost = false;
 
 // --- DOM Elements ---
 const startScreen = document.getElementById('start-screen');
 const hostScreen = document.getElementById('host-screen');
+const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
 const mapPickerUI = document.getElementById('map-picker-ui');
 const statusMessage = document.getElementById('status-message');
@@ -42,8 +44,9 @@ const startQuizBtn = document.getElementById('start-quiz-btn');
 const confirmLocationBtn = document.getElementById('confirm-location-btn');
 const cancelPickerBtn = document.getElementById('cancel-picker-btn');
 const testQuestionBtn = document.getElementById('test-question-btn');
+const lobbyStartBtn = document.getElementById('lobby-start-btn');
 
-// Inputs
+// Inputs & Displays
 const usernameInput = document.getElementById('username-input');
 const roomCodeInput = document.getElementById('room-code-input');
 const qText = document.getElementById('q-text');
@@ -55,6 +58,13 @@ const questionsList = document.getElementById('questions-list');
 const qCount = document.getElementById('q-count');
 const pickerLat = document.getElementById('picker-lat');
 const pickerLng = document.getElementById('picker-lng');
+
+// Lobby Elements
+const lobbyRoomCode = document.getElementById('lobby-room-code');
+const lobbyPlayersList = document.getElementById('lobby-players-list');
+const lobbyPlayerCount = document.getElementById('lobby-player-count');
+const lobbyStatusText = document.getElementById('lobby-status-text');
+const qrCodeContainer = document.getElementById('qrcode-container');
 
 // --- Initialization ---
 const connectedRef = db.ref(".info/connected");
@@ -99,9 +109,7 @@ function initMap(interactive = false) {
 }
 
 // --- Host Mode Logic ---
-
 hostModeBtn.addEventListener('click', () => {
-    // Optional: Ask for name if not set, but not strictly required for just authoring
     startScreen.classList.add('hidden');
     hostScreen.classList.remove('hidden');
 });
@@ -118,7 +126,6 @@ pickLocationBtn.addEventListener('click', () => {
     mapPickerUI.classList.remove('hidden');
     initMap(true);
 
-    // Pre-fill if lat/lng exists manually
     const lat = parseFloat(qLat.value);
     const lng = parseFloat(qLng.value);
     if (!isNaN(lat) && !isNaN(lng)) {
@@ -147,8 +154,6 @@ confirmLocationBtn.addEventListener('click', () => {
     if (tempMarker) {
         selectedLocation = tempMarker.getLatLng();
     }
-
-    // Sync back to inputs
     qLat.value = selectedLocation.lat.toFixed(6);
     qLng.value = selectedLocation.lng.toFixed(6);
 
@@ -165,7 +170,6 @@ cancelPickerBtn.addEventListener('click', () => {
     if (tempMarker) map.removeLayer(tempMarker);
 });
 
-// Sync Manual Inputs to SelectedLocation object
 function syncManualCoords() {
     const lat = parseFloat(qLat.value);
     const lng = parseFloat(qLng.value);
@@ -176,26 +180,20 @@ function syncManualCoords() {
 qLat.addEventListener('change', syncManualCoords);
 qLng.addEventListener('change', syncManualCoords);
 
-
-// Test Question Flow
 testQuestionBtn.addEventListener('click', () => {
     const text = qText.value.trim();
     const img = qImage.value.trim();
-
     if (!text) { alert("Skriv en fråga att testa!"); return; }
-
     alert(`PREVIEW:\nFråga: ${text}\nBild: ${img ? "JA" : "NEJ"}\nTid: ${qTime.value}s\n\n(Detta är bara ett test, inget sparas)`);
 });
 
-
-// Add Question Flow
 addQuestionBtn.addEventListener('click', () => {
-    syncManualCoords(); // Ensure manual inputs are captured
+    syncManualCoords();
     const text = qText.value.trim();
     const time = parseInt(qTime.value);
 
     if (!text) { alert("Skriv en fråga!"); return; }
-    if (!selectedLocation) { alert("Ange koordinater (karta eller siffror)!"); return; }
+    if (!selectedLocation) { alert("Ange koordinater!"); return; }
 
     const question = {
         id: Date.now(),
@@ -235,14 +233,15 @@ window.removeQuestion = (index) => {
     updateQuestionsList();
 };
 
-// Start Game Flow
+// --- Lobby Logic ---
+
 startQuizBtn.addEventListener('click', () => {
-    const name = usernameInput.value.trim() || "Host"; // Fallback name
+    const name = usernameInput.value.trim() || "Host";
     const roomId = Math.random().toString(36).substring(2, 6).toUpperCase();
 
     const roomData = {
         host: name,
-        status: 'lobby', // Important: Lobby state!
+        status: 'lobby',
         questions: quizDraft,
         currentQuestionIndex: -1,
         players: {}
@@ -251,19 +250,76 @@ startQuizBtn.addEventListener('click', () => {
     db.ref('rooms/' + roomId).set(roomData)
         .then(() => {
             console.log("Room created:", roomId);
-            enterLobby(roomId, true); // true = isHost
+            isGlobalHost = true;
+            enterLobby(roomId, true);
         });
 });
 
 function enterLobby(roomId, isHost) {
-    hostScreen.classList.add('hidden');
+    currentRoomId = roomId;
     startScreen.classList.add('hidden');
-    // For now, simpler game screen usage
-    gameScreen.classList.remove('hidden');
-    initMap(false); // Map view only
+    hostScreen.classList.add('hidden');
+    lobbyScreen.classList.remove('hidden');
 
-    alert(`LOBBY STARTED!\nRoom Code: ${roomId}\n(Delas med vänner)\n\nHost kan snart starta spelet härifrån.`);
-    document.getElementById('round-info').textContent = `Lobby: ${roomId}`;
+    lobbyRoomCode.textContent = roomId;
+    qrCodeContainer.innerHTML = "";
+
+    // Generate QR Code
+    const joinUrl = window.location.href.split('?')[0] + "?room=" + roomId;
+    new QRCode(qrCodeContainer, {
+        text: joinUrl,
+        width: 128,
+        height: 128
+    });
+
+    if (isHost) {
+        lobbyStartBtn.classList.remove('hidden');
+        lobbyStatusText.textContent = "Du är Host. Starta när alla är med.";
+    } else {
+        lobbyStartBtn.classList.add('hidden');
+        lobbyStatusText.textContent = "Väntar på att Host ska starta spelet...";
+    }
+
+    // Listen for players
+    db.ref(`rooms/${roomId}/players`).on('value', (snapshot) => {
+        lobbyPlayersList.innerHTML = "";
+        const players = snapshot.val() || {};
+        const count = Object.keys(players).length;
+        lobbyPlayerCount.textContent = count;
+
+        Object.values(players).forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = p.name;
+            lobbyPlayersList.appendChild(li);
+        });
+    });
+
+    // Listen for Game Start (Status Change)
+    db.ref(`rooms/${roomId}/status`).on('value', (snap) => {
+        const status = snap.val();
+        if (status === 'game_active') {
+            startGameFlow();
+        }
+    });
+}
+
+lobbyStartBtn.addEventListener('click', () => {
+    if (!currentRoomId) return;
+    db.ref(`rooms/${currentRoomId}`).update({
+        status: 'game_active',
+        currentQuestionIndex: 0
+    });
+});
+
+function startGameFlow() {
+    lobbyScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    initMap(true);
+
+    // Placeholder logic for now
+    document.getElementById('round-info').textContent = "Spelet har startat! (Logic Loading...)";
+
+    // Here we will hook into the Game Loop next
 }
 
 // Join Room Logic
@@ -273,7 +329,6 @@ joinRoomBtn.addEventListener('click', () => {
 
     if (!name || !code) { alert("Fyll i namn och kod!"); return; }
 
-    // Check if room exists
     db.ref('rooms/' + code).once('value', snap => {
         if (snap.exists()) {
             const userId = db.ref().child('rooms').push().key;
@@ -288,3 +343,10 @@ joinRoomBtn.addEventListener('click', () => {
         }
     });
 });
+
+// Auto-join if URL param exists (Optional polish)
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+    roomCodeInput.value = roomParam;
+}

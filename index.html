@@ -17,7 +17,7 @@
 
     <div class="app-container">
 
-        <!-- Redesigned Start Screen -->
+        <!-- Start Screen -->
         <div id="start-screen" class="glass-panel">
             <h1>Kartquizen</h1>
             <p class="subtitle">Utmana dina vänner i geografi</p>
@@ -51,19 +51,16 @@
                     <label>Fråga</label>
                     <input type="text" id="q-text" placeholder="T.ex. Var ligger..." autocomplete="off">
                 </div>
-
                 <div class="input-group">
                     <label>Bild-URL (Frivillig)</label>
                     <input type="text" id="q-image" placeholder="https://..." autocomplete="off">
                 </div>
-
                 <div class="form-row">
                     <div class="input-group half">
                         <label>Tid (sek)</label>
                         <input type="number" id="q-time" value="30" min="5" max="300">
                     </div>
                 </div>
-
                 <div class="form-row">
                     <div class="input-group">
                         <label>Plats (Lat/Lng)</label>
@@ -83,13 +80,33 @@
 
             <div class="questions-list-container">
                 <h3>Dina Frågor (<span id="q-count">0</span>)</h3>
-                <ul id="questions-list">
-                    <!-- Added questions will appear here -->
-                </ul>
+                <ul id="questions-list"></ul>
             </div>
 
             <div class="host-actions">
                 <button id="start-quiz-btn" class="btn success full-width" disabled>Starta Lobbyn</button>
+            </div>
+        </div>
+
+        <!-- Lobby Screen -->
+        <div id="lobby-screen" class="glass-panel hidden">
+            <h2>Lobby</h2>
+            <div class="lobby-info">
+                <p>Rumskod:</p>
+                <h1 id="lobby-room-code">----</h1>
+                <div id="qrcode-container"></div>
+            </div>
+
+            <div class="players-list-section">
+                <h3>Spelare (<span id="lobby-player-count">0</span>)</h3>
+                <ul id="lobby-players-list">
+                    <!-- Players go here -->
+                </ul>
+            </div>
+
+            <div class="lobby-actions">
+                <p id="lobby-status-text" class="status-indicator">Väntar på spelare...</p>
+                <button id="lobby-start-btn" class="btn success full-width hidden">Starta Spelet</button>
             </div>
         </div>
 
@@ -127,8 +144,11 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
+    <!-- QRCode JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <!-- App Logic -->
-    <script src="js/script.js?v=9"></script>
+    <script src="js/script.js?v=10"></script>
 </body>
 
 </html>
