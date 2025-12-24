@@ -15,12 +15,12 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-console.log("Firebase initialized - VERSION 13 LOADED (Persistence + Control Flow)");
+console.log("Firebase initialized - VERSION 14 LOADED (UX Refine + Mobile Fix)");
 
 // --- Global State ---
 let currentPlayer = { id: null, name: null, score: 0 };
 let currentRoomId = null;
-let currentQuizId = null; // New for persistence
+let currentQuizId = null;
 let map = null;
 let tempMarker = null;
 let quizDraft = [];
@@ -33,6 +33,7 @@ let timerInterval = null;
 let playerGuessMarker = null;
 let correctMarker = null;
 let answerLine = null;
+let editingIndex = -1; // New: Tracks which question we are editing
 
 // --- DOM Elements ---
 const startScreen = document.getElementById('start-screen');
@@ -41,7 +42,7 @@ const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
 const mapPickerUI = document.getElementById('map-picker-ui');
 const statusMessage = document.getElementById('status-message');
-const loadQuizSection = document.getElementById('load-quiz-section'); // New
+const loadQuizSection = document.getElementById('load-quiz-section');
 
 // Game UI Elements
 const questionOverlay = document.getElementById('question-overlay');
@@ -55,11 +56,12 @@ const feedbackOverlay = document.getElementById('feedback-overlay');
 const feedbackText = document.getElementById('feedback-text');
 const feedbackSubtext = document.getElementById('feedback-subtext');
 const nextQuestionBtn = document.getElementById('next-question-btn');
-const gotoLeaderboardBtn = document.getElementById('goto-leaderboard-btn'); // New
-const leaderboardOverlay = document.getElementById('leaderboard-overlay'); // New
-const liveLeaderboardList = document.getElementById('live-leaderboard-list'); // New
+const gotoLeaderboardBtn = document.getElementById('goto-leaderboard-btn');
+const leaderboardOverlay = document.getElementById('leaderboard-overlay');
+const liveLeaderboardList = document.getElementById('live-leaderboard-list');
 const submitGuessBtn = document.getElementById('submit-guess-btn');
 const pickerInstruction = document.getElementById('picker-instruction');
+const exitTestBtn = document.getElementById('exit-test-btn'); // New
 
 // Buttons & Inputs
 const hostModeBtn = document.getElementById('host-mode-btn');
@@ -67,19 +69,20 @@ const joinRoomBtn = document.getElementById('join-room-btn');
 const backToStartBtn = document.getElementById('back-to-start-btn');
 const pickLocationBtn = document.getElementById('pick-location-btn');
 const addQuestionBtn = document.getElementById('add-question-btn');
+const updateQuestionBtn = document.getElementById('update-question-btn'); // New
+const cancelEditBtn = document.getElementById('cancel-edit-btn'); // New
 const startQuizBtn = document.getElementById('start-quiz-btn');
 const confirmLocationBtn = document.getElementById('confirm-location-btn');
 const cancelPickerBtn = document.getElementById('cancel-picker-btn');
-const testQuestionBtn = document.getElementById('test-question-btn');
 const lobbyStartBtn = document.getElementById('lobby-start-btn');
 const testRunBtn = document.getElementById('test-run-btn');
-const saveQuizBtn = document.getElementById('save-quiz-btn'); // New
-const loadQuizBtn = document.getElementById('load-quiz-btn'); // New
+const saveQuizBtn = document.getElementById('save-quiz-btn');
+const loadQuizBtn = document.getElementById('load-quiz-btn');
 
 const usernameInput = document.getElementById('username-input');
 const roomCodeInput = document.getElementById('room-code-input');
-const quizLoadCode = document.getElementById('quiz-load-code'); // New
-const currentQuizIdDisplay = document.getElementById('current-quiz-id'); // New
+const quizLoadCode = document.getElementById('quiz-load-code');
+const currentQuizIdDisplay = document.getElementById('current-quiz-id');
 
 const qText = document.getElementById('q-text');
 const qImage = document.getElementById('q-image');
@@ -117,8 +120,6 @@ function initMap(interactive = false) {
             minZoom: 2,
             maxBounds: [[-90, -180], [90, 180]]
         });
-
-        // "Greenwich utzoomat" - Standard view
         map.setView([20, 0], 2);
 
         fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
@@ -157,7 +158,6 @@ function disableMapInteraction() {
 
 // --- Navigation & Basic Logic ---
 hostModeBtn.addEventListener('click', () => {
-    // Toggle Load Quiz Section
     if (loadQuizSection.classList.contains('hidden')) {
         loadQuizSection.classList.remove('hidden');
     } else {
@@ -171,57 +171,50 @@ backToStartBtn.addEventListener('click', () => {
     startScreen.classList.remove('hidden');
 });
 
-// --- PERSISTENCE LOGIC (Save/Load) ---
-
+// --- PERSISTENCE ---
 saveQuizBtn.addEventListener('click', () => {
     if (quizDraft.length === 0) { alert("Inga frågor att spara!"); return; }
-
-    // Generate new ID if not existing
     if (!currentQuizId) {
-        currentQuizId = "QUIZ-" + Math.floor(1000 + Math.random() * 9000); // Ex: QUIZ-4521
+        currentQuizId = "QUIZ-" + Math.floor(1000 + Math.random() * 9000);
     }
-
     db.ref('quizzes/' + currentQuizId).set({
         questions: quizDraft,
         created: Date.now()
     }).then(() => {
         currentQuizIdDisplay.textContent = `ID: ${currentQuizId} (Sparat!)`;
-        alert(`Quiz sparat!\nID: ${currentQuizId}\n\nSpara detta ID för att ladda quizet senare.`);
+        alert(`Quiz sparat!\nID: ${currentQuizId}`);
     });
 });
 
 loadQuizBtn.addEventListener('click', () => {
     const id = quizLoadCode.value.trim().toUpperCase();
     if (!id) { alert("Ange ett Quiz-ID!"); return; }
-
     db.ref('quizzes/' + id).once('value', snap => {
         if (snap.exists()) {
             const data = snap.val();
             quizDraft = data.questions || [];
             currentQuizId = id;
             updateQuestionsList();
-
-            // Go to Host Screen
             startScreen.classList.add('hidden');
             hostScreen.classList.remove('hidden');
             currentQuizIdDisplay.textContent = `ID: ${currentQuizId}`;
         } else {
-            alert("Hittade inget quiz med det IDt.");
+            alert("Hittade inget quiz.");
         }
     });
 });
 
 
-// --- Map Picker (Host Mode) ---
+// --- MAP PICKER ---
 pickLocationBtn.addEventListener('click', () => {
     hostScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
     mapPickerUI.classList.remove('hidden');
     submitGuessBtn.classList.add('hidden');
     confirmLocationBtn.classList.remove('hidden');
+    exitTestBtn.classList.add('hidden'); // Hide test exit button during picker
     initMap(true);
 
-    // If saving/loading coordinates
     const lat = parseFloat(qLat.value);
     const lng = parseFloat(qLng.value);
     if (!isNaN(lat) && !isNaN(lng)) {
@@ -264,36 +257,58 @@ cancelPickerBtn.addEventListener('click', () => {
     if (tempMarker) map.removeLayer(tempMarker);
 });
 
-// --- Host Form Logic ---
-function syncManualCoords() {
+// --- HOST FORM LOGIC (Create/Edit) ---
+qLat.addEventListener('change', () => {
     const lat = parseFloat(qLat.value);
     const lng = parseFloat(qLng.value);
-    if (!isNaN(lat) && !isNaN(lng)) {
-        selectedLocation = { lat: lat, lng: lng };
-    }
-}
-qLat.addEventListener('change', syncManualCoords);
-qLng.addEventListener('change', syncManualCoords);
+    if (!isNaN(lat) && !isNaN(lng)) selectedLocation = { lat: lat, lng: lng };
+});
+qLng.addEventListener('change', () => {
+    const lat = parseFloat(qLat.value);
+    const lng = parseFloat(qLng.value);
+    if (!isNaN(lat) && !isNaN(lng)) selectedLocation = { lat: lat, lng: lng };
+});
 
-addQuestionBtn.addEventListener('click', () => {
-    syncManualCoords();
+function getFormData() {
     const text = qText.value.trim();
-    const time = parseInt(qTime.value);
+    if (!text) { alert("Skriv en fråga!"); return null; }
+    if (!selectedLocation && !qLat.value) { alert("Ange koordinater!"); return null; }
 
-    if (!text) { alert("Skriv en fråga!"); return; }
-    if (!selectedLocation) { alert("Ange koordinater!"); return; }
+    // Ensure selectedLocation is sync
+    if (!selectedLocation) {
+        selectedLocation = { lat: parseFloat(qLat.value), lng: parseFloat(qLng.value) };
+    }
 
-    const question = {
+    return {
         id: Date.now(),
         text: text,
         image: qImage.value.trim(),
-        timeLimit: time,
+        timeLimit: parseInt(qTime.value),
         correctAnswer: selectedLocation
     };
-    quizDraft.push(question);
-    updateQuestionsList();
-    resetForm();
+}
+
+addQuestionBtn.addEventListener('click', () => {
+    const q = getFormData();
+    if (q) {
+        quizDraft.push(q);
+        updateQuestionsList();
+        resetForm();
+    }
 });
+
+updateQuestionBtn.addEventListener('click', () => {
+    if (editingIndex === -1) return;
+    const q = getFormData();
+    if (q) {
+        quizDraft[editingIndex] = q;
+        editingIndex = -1;
+        updateQuestionsList();
+        resetForm();
+    }
+});
+
+cancelEditBtn.addEventListener('click', resetForm);
 
 function resetForm() {
     qText.value = "";
@@ -302,13 +317,29 @@ function resetForm() {
     qLat.value = "";
     qLng.value = "";
     selectedLocation = null;
+    editingIndex = -1;
+
+    // Switch buttons
+    addQuestionBtn.classList.remove('hidden');
+    updateQuestionBtn.classList.add('hidden');
+    cancelEditBtn.classList.add('hidden');
 }
 
 function updateQuestionsList() {
     questionsList.innerHTML = "";
     quizDraft.forEach((q, index) => {
         const li = document.createElement('li');
-        li.innerHTML = `<span>${index + 1}. ${q.text}</span> <button class="btn small failed" onclick="removeQuestion(${index})">X</button>`;
+        li.innerHTML = `
+            <div class="q-info">
+                <span class="q-text-preview">${index + 1}. ${q.text}</span>
+            </div>
+            <div class="q-controls">
+                <button class="btn secondary small" onclick="moveQuestion(${index}, -1)">↑</button>
+                <button class="btn secondary small" onclick="moveQuestion(${index}, 1)">↓</button>
+                <button class="btn primary small" onclick="editQuestion(${index})">✎</button>
+                <button class="btn warn small" onclick="removeQuestion(${index})">X</button>
+            </div>
+        `;
         questionsList.appendChild(li);
     });
     qCount.textContent = quizDraft.length;
@@ -322,15 +353,41 @@ window.removeQuestion = (index) => {
     updateQuestionsList();
 };
 
+window.moveQuestion = (index, direction) => {
+    if (direction === -1 && index > 0) {
+        [quizDraft[index], quizDraft[index - 1]] = [quizDraft[index - 1], quizDraft[index]];
+    } else if (direction === 1 && index < quizDraft.length - 1) {
+        [quizDraft[index], quizDraft[index + 1]] = [quizDraft[index + 1], quizDraft[index]];
+    }
+    updateQuestionsList();
+};
+
+window.editQuestion = (index) => {
+    const q = quizDraft[index];
+    qText.value = q.text;
+    qImage.value = q.image;
+    qTime.value = q.timeLimit;
+    qLat.value = q.correctAnswer.lat;
+    qLng.value = q.correctAnswer.lng;
+    selectedLocation = q.correctAnswer;
+
+    editingIndex = index;
+    addQuestionBtn.classList.add('hidden');
+    updateQuestionBtn.classList.remove('hidden');
+    cancelEditBtn.classList.remove('hidden');
+};
+
 
 // --- GAME ENGINE ---
 
+// Dry Run
 testRunBtn.addEventListener('click', () => {
     gameQuestions = [...quizDraft];
     isGlobalHost = true;
     isDryRun = true;
     hostScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
+    exitTestBtn.classList.remove('hidden'); // Show exit button
     initMap(false);
 
     currentQIndex = 0;
@@ -338,7 +395,28 @@ testRunBtn.addEventListener('click', () => {
     startQuestionPhase1();
 });
 
-// Lobby Start (Real Game)
+// Exit Dry Run
+exitTestBtn.addEventListener('click', () => {
+    // Reset state
+    isDryRun = false;
+    isGlobalHost = false;
+
+    // Clear intervals
+    if (timerInterval) clearInterval(timerInterval);
+
+    // Hide Game UI
+    gameScreen.classList.add('hidden');
+    questionOverlay.classList.add('hidden');
+    mapPickerUI.classList.add('hidden');
+    feedbackOverlay.classList.add('hidden');
+    leaderboardOverlay.classList.add('hidden');
+
+    // Show Host Screen
+    hostScreen.classList.remove('hidden');
+});
+
+
+// Real Game
 startQuizBtn.addEventListener('click', () => {
     gameQuestions = [...quizDraft];
     const name = usernameInput.value.trim() || "Lekledare";
@@ -378,10 +456,8 @@ function enterLobby(roomId, isHost) {
         lobbyStatusText.textContent = "Väntar på att Lekledaren ska starta spelet...";
 
         db.ref(`rooms/${roomId}/status`).on('value', (snap) => {
-            // Game State Sync for Players
             const state = snap.val();
             if (state === 'game_active') {
-                // Trigger fetch questions if not saving them locally
                 db.ref(`rooms/${roomId}/questions`).once('value', qSnap => {
                     gameQuestions = qSnap.val();
                     startGameFlow();
@@ -403,25 +479,22 @@ lobbyStartBtn.addEventListener('click', () => {
 function startGameFlow() {
     lobbyScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
+    exitTestBtn.classList.add('hidden'); // No exit in real game
     initMap(false);
     currentQIndex = 0;
     startQuestionPhase1();
 }
 
-// --- PHASE 1: PREVIEW (Reading) ---
 function startQuestionPhase1() {
     if (currentQIndex >= gameQuestions.length) {
         endGame();
         return;
     }
-
-    // MAP RESET (Crucial Requirement)
     if (map) map.setView([20, 0], 2);
 
     const question = gameQuestions[currentQIndex];
     document.getElementById('round-info').textContent = `Fråga: ${currentQIndex + 1}/${gameQuestions.length}`;
 
-    // Clear State
     if (playerGuessMarker) map.removeLayer(playerGuessMarker);
     if (correctMarker) map.removeLayer(correctMarker);
     if (answerLine) map.removeLayer(answerLine);
@@ -429,15 +502,13 @@ function startQuestionPhase1() {
 
     disableMapInteraction();
 
-    // UI: Maximize Overlay
     feedbackOverlay.classList.add('hidden');
-    leaderboardOverlay.classList.add('hidden'); // Clear leaderboard
+    leaderboardOverlay.classList.add('hidden');
     questionOverlay.classList.remove('hidden');
     questionBox.classList.remove('minimized');
     mapPickerUI.classList.add('hidden');
 
     gameQuestionText.textContent = question.text;
-
     if (question.image) {
         gameQuestionImage.src = question.image;
         gameImageContainer.classList.remove('hidden');
@@ -454,17 +525,26 @@ function startQuestionPhase1() {
     }, 4000);
 }
 
-// --- PHASE 2: ACTION (Guessing) ---
 function startQuestionPhase2(question) {
     questionBox.classList.add('minimized');
     if (question.image) gameImageContainer.classList.add('mini-img');
 
     mapPickerUI.classList.remove('hidden');
-    submitGuessBtn.classList.remove('hidden');
-    confirmLocationBtn.classList.add('hidden');
 
-    enableMapInteraction();
-    pickerInstruction.textContent = "Klicka på kartan nu!";
+    // HOST BLOCKING LOGIC
+    if (isGlobalHost && !isDryRun) {
+        // Real Lekledare cannot guess
+        submitGuessBtn.classList.add('hidden');
+        pickerInstruction.textContent = "Spelarna gissar nu...";
+        timerText.textContent = "Tid kvar";
+        disableMapInteraction(); // Block clicks
+    } else {
+        // Player or Dry Run
+        submitGuessBtn.classList.remove('hidden');
+        confirmLocationBtn.classList.add('hidden');
+        pickerInstruction.textContent = "Klicka på kartan nu!";
+        enableMapInteraction();
+    }
 
     let timeLeft = question.timeLimit || 30;
     timerText.textContent = timeLeft;
@@ -484,21 +564,16 @@ function startQuestionPhase2(question) {
     }, 1000);
 }
 
-// Player Guess Logic
 submitGuessBtn.addEventListener('click', () => {
     if (!tempMarker) { alert("Välj en plats först!"); return; }
     playerGuessMarker = tempMarker;
     tempMarker = null;
     disableMapInteraction();
-
     questionOverlay.classList.add('hidden');
     mapPickerUI.classList.add('hidden');
-
     feedbackOverlay.classList.remove('hidden');
     feedbackText.textContent = "Registrerat!";
     feedbackSubtext.textContent = "Väntar på rättning...";
-
-    // In multiplayer, here we would push to Firebase: rooms/{id}/guesses/{uid} = latlng
 
     if (isDryRun) {
         clearInterval(timerInterval);
@@ -515,87 +590,79 @@ function timeIsUp() {
     showRoundResult();
 }
 
-// --- RESULT & LEADERBOARD FLOW ---
-
 function showRoundResult() {
     const question = gameQuestions[currentQIndex];
     const correctLatLng = question.correctAnswer;
 
-    // Show Correct Answer
     correctMarker = L.marker([correctLatLng.lat, correctLatLng.lng], {
         icon: L.divIcon({ className: 'correct-marker', html: '📍', iconSize: [30, 30] })
     }).addTo(map);
 
-    // Calc score for THIS player (Local logic for now, multiplayer needs sync)
     let roundPoints = 0;
     let distText = "Inget svar";
 
     if (playerGuessMarker) {
         const guessLatLng = playerGuessMarker.getLatLng();
         const distKm = calculateDistance(correctLatLng.lat, correctLatLng.lng, guessLatLng.lat, guessLatLng.lng);
-
         answerLine = L.polyline([guessLatLng, correctLatLng], { color: 'red', dashArray: '5, 10' }).addTo(map);
         map.fitBounds(answerLine.getBounds(), { padding: [50, 50] });
-
         distText = `${Math.round(distKm)} km`;
         roundPoints = Math.max(0, 1000 - Math.round(distKm / 2));
     } else {
         map.setView([correctLatLng.lat, correctLatLng.lng], 5);
-        // Clean view of correct location
     }
 
-    currentPlayer.score += roundPoints;
+    // Only update score if I am guessing (Player or Dry Run)
+    if (!isGlobalHost || isDryRun) {
+        currentPlayer.score += roundPoints;
+        feedbackText.textContent = roundPoints > 0 ? `+${roundPoints} p` : "0 p";
+        feedbackSubtext.textContent = distText;
+        document.getElementById('player-score').textContent = `Poäng: ${currentPlayer.score}`;
+    } else {
+        feedbackText.textContent = "RÄTT SVAR";
+        feedbackSubtext.textContent = "Visas på kartan";
+    }
 
-    feedbackOverlay.classList.remove('hidden');
-    feedbackText.textContent = roundPoints > 0 ? `+${roundPoints} p` : "0 p";
-    feedbackSubtext.textContent = distText;
-    document.getElementById('player-score').textContent = `Poäng: ${currentPlayer.score}`;
-
-    // Host controls flow to LEADERBOARD
     if (isGlobalHost) {
         gotoLeaderboardBtn.classList.remove('hidden');
-        nextQuestionBtn.classList.add('hidden'); // Ensure next btn (in leaderboard) is hidden till then
+        nextQuestionBtn.classList.add('hidden');
     }
 }
 
 gotoLeaderboardBtn.addEventListener('click', () => {
-    // Transition to Leaderboard State
     feedbackOverlay.classList.add('hidden');
     leaderboardOverlay.classList.remove('hidden');
-
-    // Update Leaderboard List
     liveLeaderboardList.innerHTML = "";
 
-    // Dry Run / Local: Just show me
-    // Multiplyer: Fetch from Firebase players list sorted by score
-    // Mocking for Dry Run:
-    const li = document.createElement('li');
-    li.innerHTML = `<strong>${currentPlayer.name || "Jag"}</strong>: ${currentPlayer.score} p`;
-    liveLeaderboardList.appendChild(li);
-
-    // The "Next Question" button is inside the leaderboard overlay
+    // Dry Run specific: Show local player
+    if (isDryRun) {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>Jag</strong>: ${currentPlayer.score} p`;
+        liveLeaderboardList.appendChild(li);
+    } else {
+        // Multiplayer Placeholder
+        const li = document.createElement('li');
+        li.innerHTML = `Top list laddas... (Väntar på FB-sync i nästa steg)`;
+        liveLeaderboardList.appendChild(li);
+    }
 });
 
 nextQuestionBtn.addEventListener('click', () => {
     leaderboardOverlay.classList.add('hidden');
     currentQIndex++;
-    startQuestionPhase1(); // Loop back to Phase 1
+    startQuestionPhase1();
 });
-
 
 function endGame() {
     feedbackOverlay.classList.remove('hidden');
-    leaderboardOverlay.classList.add('hidden'); // Ensure hidden
+    leaderboardOverlay.classList.add('hidden');
     feedbackText.textContent = "SPELET SLUT";
-    feedbackSubtext.textContent = `Din totalpoäng: ${currentPlayer.score}`;
-
-    // Hijack the goto button for restart
+    feedbackSubtext.textContent = "";
     gotoLeaderboardBtn.textContent = "Avsluta / Starta Om";
     gotoLeaderboardBtn.classList.remove('hidden');
     gotoLeaderboardBtn.onclick = () => window.location.reload();
 }
 
-// --- Utilities ---
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -605,4 +672,11 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+}
+
+// Auto-join from URL
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+    roomCodeInput.value = roomParam;
 }

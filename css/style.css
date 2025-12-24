@@ -13,7 +13,7 @@ html {
     overflow: hidden;
 }
 
-/* Background - Dynamic Gradient (Restored) */
+/* Background */
 body {
     background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
     background-size: 400% 400%;
@@ -44,7 +44,7 @@ body {
     position: relative;
 }
 
-/* Glassmorphism Panel */
+/* Glass Panels */
 .glass-panel {
     background: rgba(255, 255, 255, 0.1);
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
@@ -59,27 +59,58 @@ body {
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
-    /* For corner button */
 }
 
 .wide-panel {
-    max-width: 600px;
+    max-width: 900px;
+    /* Wider for 2 cols */
     padding: 2rem;
     text-align: left;
 }
 
-/* Typography */
+/* Host Grid Layout */
+.host-layout-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.host-col-form {
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding-right: 2rem;
+}
+
+.host-col-list {
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 768px) {
+    .host-layout-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .host-col-form {
+        border-right: none;
+        padding-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .wide-panel {
+        padding: 1rem;
+    }
+}
+
+/* Headers & Typography */
 h1 {
     font-size: 3rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    letter-spacing: -1px;
-    text-align: center;
 }
 
 h2 {
     font-size: 2rem;
-    margin-bottom: 1.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     padding-bottom: 0.5rem;
 }
@@ -87,17 +118,22 @@ h2 {
 h3 {
     font-size: 1.2rem;
     margin-bottom: 1rem;
-    margin-top: 1.5rem;
+    margin-top: 0;
 }
 
-.subtitle {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    margin-bottom: 2rem;
-    text-align: center;
+.host-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
 }
 
-/* Inputs & Forms */
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Inputs */
 .input-group {
     margin-bottom: 1rem;
     display: flex;
@@ -112,6 +148,17 @@ label {
     color: rgba(255, 255, 255, 0.9);
 }
 
+.small-input {
+    flex: 1;
+}
+
+.form-row,
+.coords-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
 input[type="text"],
 input[type="number"] {
     width: 100%;
@@ -120,34 +167,7 @@ input[type="number"] {
     border: none;
     background: rgba(255, 255, 255, 0.2);
     color: white;
-    font-size: 1rem;
     outline: none;
-    transition: background 0.3s;
-}
-
-input[type="text"]::placeholder {
-    color: rgba(255, 255, 255, 0.6);
-}
-
-input[type="text"]:focus,
-input[type="number"]:focus {
-    background: rgba(255, 255, 255, 0.3);
-}
-
-.form-row {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.coords-row {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.small-input {
-    flex: 1;
-    /* Lat/Lng fit equally */
 }
 
 /* Buttons */
@@ -158,7 +178,7 @@ input[type="number"]:focus {
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.1s, opacity 0.2s, background 0.2s;
+    transition: transform 0.1s, opacity 0.2s;
 }
 
 .btn:active {
@@ -185,51 +205,34 @@ input[type="number"]:focus {
     color: white;
 }
 
-.btn.small {
-    padding: 5px 10px;
+.btn.warn {
+    background: #f44336;
+    color: white;
     font-size: 0.8rem;
-    margin-bottom: 1rem;
+    padding: 4px 8px;
+}
+
+.btn.small {
+    padding: 5px 12px;
+    font-size: 0.9rem;
 }
 
 .full-width {
     width: 100%;
 }
 
-/* Start Screen specific */
-.join-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.corner-btn {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.8rem;
-    padding: 5px;
-}
-
-.corner-btn:hover {
-    color: white;
-}
-
-/* Host Interface Specifics */
-.status-indicator {
-    font-size: 0.9rem;
-    font-style: italic;
-    opacity: 0.8;
-}
-
-.questions-list-container {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 12px;
-    padding: 1rem;
+.top-margin {
     margin-top: 1rem;
-    max-height: 200px;
+}
+
+/* List Styles */
+.questions-list-wrapper {
+    flex: 1;
     overflow-y: auto;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    max-height: 400px;
 }
 
 #questions-list {
@@ -238,43 +241,48 @@ input[type="number"]:focus {
 
 #questions-list li {
     background: rgba(255, 255, 255, 0.1);
-    padding: 8px 12px;
+    padding: 10px;
     border-radius: 8px;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
     display: flex;
     justify-content: space-between;
-    font-size: 0.9rem;
+    align-items: center;
 }
 
-.host-actions {
-    margin-top: 2rem;
-    /* Spacing for start button */
-}
-
-.form-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-}
-
-/* Status Message */
-.status-msg {
-    margin-top: 1.5rem;
-    font-size: 0.9rem;
+.q-text-preview {
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
 }
 
-/* Hidden Utility */
-.hidden {
-    display: none !important;
+.q-controls {
+    display: flex;
+    gap: 5px;
 }
 
-/* Map & Game UI */
+/* Save Controls */
+.save-controls {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#current-quiz-id {
+    font-family: monospace;
+    color: #ffeb3b;
+}
+
+/* Map & Overlays */
 #map {
     height: 100vh;
     width: 100vw;
     background-color: #E6F3FF;
-    /* Pale Blue Water */
 }
 
 .game-ui {
@@ -291,20 +299,20 @@ input[type="number"]:focus {
     text-align: center;
 }
 
-.overlay-right {
-    top: 20px;
-    right: 20px;
-}
-
 .overlay-center {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    text-align: center;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.85);
     padding: 2rem;
     border-radius: 20px;
     border: 2px solid white;
+    text-align: center;
+}
+
+.overlay-right {
+    top: 20px;
+    right: 20px;
 }
 
 .overlay-bottom {
@@ -319,58 +327,71 @@ input[type="number"]:focus {
 }
 
 .glass-panel-mini {
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.75);
     color: white;
     backdrop-filter: blur(5px);
     padding: 15px 25px;
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
-.coords-display {
-    margin: 10px 0;
-    font-family: monospace;
-    font-size: 1.1rem;
-    color: #4caf50;
+.overlay-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1100;
 }
 
-/* Question Overlay Specifics */
-.question-box h3 {
-    margin-bottom: 0.5rem;
-    margin-top: 0;
+/* Minimized Question Box */
+.question-box.minimized {
+    position: fixed;
+    bottom: 80px;
+    top: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 600px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.85);
 }
 
-#game-image-container img {
-    max-width: 100%;
-    max-height: 200px;
-    border-radius: 8px;
-    margin-bottom: 10px;
+.question-box.minimized h3 {
+    font-size: 1rem;
+    margin: 0;
+    display: inline-block;
 }
 
-.timer-bar {
-    width: 100%;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
-    margin-top: 10px;
-    overflow: hidden;
+.question-box.minimized #timer-text {
+    display: inline-block;
+    margin-left: 10px;
+    font-weight: bold;
+    color: #ffeb3b;
 }
 
-#timer-fill {
-    height: 100%;
-    background: #4caf50;
-    width: 100%;
-    transition: width 1s linear;
+.mini-img {
+    display: none;
 }
 
-#timer-text {
+.question-box {
+    transition: all 0.5s ease;
+}
+
+/* Helper */
+.hidden {
+    display: none !important;
+}
+
+.corner-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
     font-size: 0.8rem;
-    margin-top: 5px;
-    opacity: 0.8;
+    padding: 5px;
 }
 
-/* Lobby Specifics */
+/* Lobby */
 #qrcode-container {
     background: white;
     padding: 15px;
@@ -385,55 +406,3 @@ input[type="number"]:focus {
     letter-spacing: 5px;
     color: #ffeb3b;
 }
-
-#lobby-players-list {
-    list-style: none;
-    max-height: 200px;
-    overflow-y: auto;
-    text-align: left;
-}
-
-#lobby-players-list li {
-    background: rgba(255, 255, 255, 0.15);
-    padding: 10px;
-    margin-bottom: 5px;
-    border-radius: 8px;
-    font-weight: 600;
-}
-/* Phase 2: Minimized Question Overlay */
-.question-box.minimized {
-    position: fixed;
-    bottom: 80px; /* Above map picker */
-    top: auto;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 600px;
-    padding: 10px;
-    transition: all 0.5s ease;
-    background: rgba(0, 0, 0, 0.85); /* Darker for readability */
-}
-
-.question-box.minimized h3 {
-    font-size: 1rem;
-    margin: 0;
-    display: inline-block;
-}
-
-.question-box.minimized #timer-text {
-    display: inline-block;
-    margin-left: 10px;
-    font-weight: bold;
-    font-size: 1.2rem;
-    color: #ffeb3b; 
-}
-
-/* Hide image in minimized mode to save space (or make tiny) */
-.mini-img {
-    display: none; 
-}
-
-.question-box {
-    transition: all 0.5s ease;
-}
-

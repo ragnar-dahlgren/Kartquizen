@@ -49,60 +49,72 @@
             <button id="host-mode-btn" class="btn text-only corner-btn" title="Skapa eget quiz">⚙️ Lekledare</button>
         </div>
 
-        <!-- Host Quiz Creator Screen -->
+        <!-- Host Quiz Creator Screen (2-Column Layout) -->
         <div id="host-screen" class="glass-panel hidden wide-panel">
-            <h2>Skapa / Redigera Quiz</h2>
-            <div class="header-actions">
-                <button id="back-to-start-btn" class="btn small">← Tillbaka</button>
-                <button id="test-run-btn" class="btn secondary small">▶ Provspela Hela</button>
+            <div class="host-header">
+                <h2>Skapa / Redigera Quiz</h2>
+                <div class="header-actions">
+                    <button id="back-to-start-btn" class="btn small">← Hem</button>
+                    <button id="test-run-btn" class="btn secondary small">▶ Provspela</button>
+                </div>
             </div>
 
-            <!-- Save/Load Controls inside Host Screen -->
-            <div class="save-controls"
-                style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-                <span id="current-quiz-id" style="font-family: monospace; color: #ffeb3b;">Nytt Quiz (Osparat)</span>
+            <!-- Tools Row -->
+            <div class="save-controls">
+                <span id="current-quiz-id">Nytt Quiz (Osparat)</span>
                 <button id="save-quiz-btn" class="btn primary small">💾 Spara Quiz</button>
             </div>
 
-            <div class="question-form">
-                <div class="input-group">
-                    <label>Fråga</label>
-                    <input type="text" id="q-text" placeholder="T.ex. Var ligger..." autocomplete="off">
-                </div>
-                <div class="input-group">
-                    <label>Bild-URL (Frivillig)</label>
-                    <input type="text" id="q-image" placeholder="https://..." autocomplete="off">
-                </div>
-                <div class="form-row">
-                    <div class="input-group half">
-                        <label>Tid (sek)</label>
-                        <input type="number" id="q-time" value="30" min="5" max="300">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="input-group">
-                        <label>Plats (Lat/Lng)</label>
-                        <div class="coords-row">
-                            <input type="text" id="q-lat" placeholder="Lat" class="small-input">
-                            <input type="text" id="q-lng" placeholder="Lng" class="small-input">
-                            <button id="pick-location-btn" class="btn secondary icon-btn">📍 Karta</button>
+            <div class="host-layout-grid">
+                <!-- Left Column: Form -->
+                <div class="host-col-form">
+                    <h3>Ny Fråga</h3>
+                    <div class="question-form">
+                        <div class="input-group">
+                            <label>Fråga</label>
+                            <input type="text" id="q-text" placeholder="T.ex. Var ligger..." autocomplete="off">
+                        </div>
+                        <div class="input-group">
+                            <label>Bild-URL (Frivillig)</label>
+                            <input type="text" id="q-image" placeholder="https://..." autocomplete="off">
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group half">
+                                <label>Tid (sek)</label>
+                                <input type="number" id="q-time" value="30" min="5" max="300">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Plats (Lat/Lng)</label>
+                                <div class="coords-row">
+                                    <input type="text" id="q-lat" placeholder="Lat" class="small-input">
+                                    <input type="text" id="q-lng" placeholder="Lng" class="small-input">
+                                    <button id="pick-location-btn" class="btn secondary icon-btn">📍 Karta</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <!-- Removed "Test Question" button -->
+                            <button id="add-question-btn" class="btn primary full-width">Lägg till Fråga</button>
+                            <button id="update-question-btn" class="btn success full-width hidden">Uppdatera</button>
+                            <button id="cancel-edit-btn" class="btn secondary hidden">Avbryt</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="form-actions">
-                    <button id="test-question-btn" class="btn secondary">👁️ Testa Fråga</button>
-                    <button id="add-question-btn" class="btn primary">Lägg till Fråga</button>
+                <!-- Right Column: List -->
+                <div class="host-col-list">
+                    <h3>Dina Frågor (<span id="q-count">0</span>)</h3>
+                    <div class="questions-list-wrapper">
+                        <ul id="questions-list">
+                            <!-- List items will be injected here -->
+                        </ul>
+                    </div>
+                    <button id="start-quiz-btn" class="btn success full-width top-margin" disabled>Starta
+                        Lobbyn</button>
                 </div>
-            </div>
-
-            <div class="questions-list-container">
-                <h3>Dina Frågor (<span id="q-count">0</span>)</h3>
-                <ul id="questions-list"></ul>
-            </div>
-
-            <div class="host-actions">
-                <button id="start-quiz-btn" class="btn success full-width" disabled>Starta Lobbyn</button>
             </div>
         </div>
 
@@ -131,6 +143,9 @@
         <!-- Game Screen (Map View) -->
         <div id="game-screen" class="hidden">
             <div id="map"></div>
+
+            <!-- Exit Test Button (Dry Run only) -->
+            <button id="exit-test-btn" class="btn secondary small overlay-btn hidden">✖ Avsluta Test</button>
 
             <!-- Question Overlay (Top) -->
             <div id="question-overlay" class="game-ui overlay-top hidden">
@@ -197,12 +212,12 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic (v13 + forced reload check) -->
-    <script src="js/script.js?v=13"></script>
+    <!-- App Logic (v14 + forced check) -->
+    <script src="js/script.js?v=14"></script>
     <script>
-        // Emergency Check for Cached HTML
-        if(!document.getElementById('leaderboard-overlay')) {
-            alert("Ny version upptäckt! Laddar om...");
+        // Check for new UI element
+        if (!document.getElementById('host-layout-grid') && !document.querySelector('.host-layout-grid')) {
+            // alert("Ny design laddas..."); // Silent refresh better?
             window.location.reload(true);
         }
     </script>
