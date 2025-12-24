@@ -15,15 +15,15 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-console.log("Firebase initialized - VERSION 8 LOADED (Host Mode)");
+console.log("Firebase initialized - VERSION 9 LOADED (Coords & Lobby Logic)");
 
 // --- Global State ---
 let currentPlayer = { id: null, name: null };
 let currentRoomId = null;
 let map = null;
-let tempMarker = null; // For map picker
-let quizDraft = []; // Stores questions being created
-let selectedLocation = null; // {lat, lng} for current question
+let tempMarker = null;
+let quizDraft = [];
+let selectedLocation = null;
 
 // --- DOM Elements ---
 const startScreen = document.getElementById('start-screen');
@@ -41,6 +41,7 @@ const addQuestionBtn = document.getElementById('add-question-btn');
 const startQuizBtn = document.getElementById('start-quiz-btn');
 const confirmLocationBtn = document.getElementById('confirm-location-btn');
 const cancelPickerBtn = document.getElementById('cancel-picker-btn');
+const testQuestionBtn = document.getElementById('test-question-btn');
 
 // Inputs
 const usernameInput = document.getElementById('username-input');
@@ -48,9 +49,12 @@ const roomCodeInput = document.getElementById('room-code-input');
 const qText = document.getElementById('q-text');
 const qImage = document.getElementById('q-image');
 const qTime = document.getElementById('q-time');
-const locationStatus = document.getElementById('location-status');
+const qLat = document.getElementById('q-lat');
+const qLng = document.getElementById('q-lng');
 const questionsList = document.getElementById('questions-list');
 const qCount = document.getElementById('q-count');
+const pickerLat = document.getElementById('picker-lat');
+const pickerLng = document.getElementById('picker-lng');
 
 // --- Initialization ---
 const connectedRef = db.ref(".info/connected");
@@ -58,7 +62,6 @@ connectedRef.on("value", (snap) => {
     if (snap.val() === true) {
         statusMessage.textContent = "Ansluten till server ✓";
         statusMessage.style.color = "#4caf50";
-        hostModeBtn.disabled = false;
         joinRoomBtn.disabled = false;
     } else {
         statusMessage.textContent = "Ansluter...";
@@ -86,8 +89,7 @@ function initMap(interactive = false) {
             });
     }
 
-    // Map Interaction Logic
-    map.off('click'); // Clear old listeners
+    map.off('click');
     if (interactive) {
         map.on('click', onMapClick);
         document.getElementById('map').style.cursor = "crosshair";
@@ -99,10 +101,7 @@ function initMap(interactive = false) {
 // --- Host Mode Logic ---
 
 hostModeBtn.addEventListener('click', () => {
-    const name = usernameInput.value.trim();
-    if (!name) { alert("Ange ditt namn först!"); return; }
-    currentPlayer.name = name;
-
+    // Optional: Ask for name if not set, but not strictly required for just authoring
     startScreen.classList.add('hidden');
     hostScreen.classList.remove('hidden');
 });
@@ -117,25 +116,45 @@ pickLocationBtn.addEventListener('click', () => {
     hostScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
     mapPickerUI.classList.remove('hidden');
-    initMap(true); // Enable interaction
+    initMap(true);
+
+    // Pre-fill if lat/lng exists manually
+    const lat = parseFloat(qLat.value);
+    const lng = parseFloat(qLng.value);
+    if (!isNaN(lat) && !isNaN(lng)) {
+        if (tempMarker) map.removeLayer(tempMarker);
+        tempMarker = L.marker([lat, lng]).addTo(map);
+        map.setView([lat, lng], 5);
+        updatePickerDisplay(lat, lng);
+    }
 });
 
 function onMapClick(e) {
     if (tempMarker) map.removeLayer(tempMarker);
     tempMarker = L.marker(e.latlng).addTo(map);
     selectedLocation = e.latlng;
+    updatePickerDisplay(e.latlng.lat, e.latlng.lng);
+}
+
+function updatePickerDisplay(lat, lng) {
+    pickerLat.textContent = "Lat: " + lat.toFixed(4);
+    pickerLng.textContent = "Lng: " + lng.toFixed(4);
 }
 
 confirmLocationBtn.addEventListener('click', () => {
-    if (!selectedLocation) { alert("Klicka på kartan först!"); return; }
+    if (!selectedLocation && (!tempMarker)) { alert("Klicka på kartan först!"); return; }
 
-    // Return to Host Screen
+    if (tempMarker) {
+        selectedLocation = tempMarker.getLatLng();
+    }
+
+    // Sync back to inputs
+    qLat.value = selectedLocation.lat.toFixed(6);
+    qLng.value = selectedLocation.lng.toFixed(6);
+
     gameScreen.classList.add('hidden');
     mapPickerUI.classList.add('hidden');
     hostScreen.classList.remove('hidden');
-
-    locationStatus.textContent = "Vald ✓";
-    locationStatus.style.color = "#4caf50";
     if (tempMarker) map.removeLayer(tempMarker);
 });
 
@@ -143,17 +162,40 @@ cancelPickerBtn.addEventListener('click', () => {
     gameScreen.classList.add('hidden');
     mapPickerUI.classList.add('hidden');
     hostScreen.classList.remove('hidden');
-    selectedLocation = null;
     if (tempMarker) map.removeLayer(tempMarker);
 });
 
+// Sync Manual Inputs to SelectedLocation object
+function syncManualCoords() {
+    const lat = parseFloat(qLat.value);
+    const lng = parseFloat(qLng.value);
+    if (!isNaN(lat) && !isNaN(lng)) {
+        selectedLocation = { lat: lat, lng: lng };
+    }
+}
+qLat.addEventListener('change', syncManualCoords);
+qLng.addEventListener('change', syncManualCoords);
+
+
+// Test Question Flow
+testQuestionBtn.addEventListener('click', () => {
+    const text = qText.value.trim();
+    const img = qImage.value.trim();
+
+    if (!text) { alert("Skriv en fråga att testa!"); return; }
+
+    alert(`PREVIEW:\nFråga: ${text}\nBild: ${img ? "JA" : "NEJ"}\nTid: ${qTime.value}s\n\n(Detta är bara ett test, inget sparas)`);
+});
+
+
 // Add Question Flow
 addQuestionBtn.addEventListener('click', () => {
+    syncManualCoords(); // Ensure manual inputs are captured
     const text = qText.value.trim();
     const time = parseInt(qTime.value);
 
     if (!text) { alert("Skriv en fråga!"); return; }
-    if (!selectedLocation) { alert("Välj en plats!"); return; }
+    if (!selectedLocation) { alert("Ange koordinater (karta eller siffror)!"); return; }
 
     const question = {
         id: Date.now(),
@@ -172,9 +214,9 @@ function resetForm() {
     qText.value = "";
     qImage.value = "";
     qTime.value = 30;
+    qLat.value = "";
+    qLng.value = "";
     selectedLocation = null;
-    locationStatus.textContent = "Ännu ej vald";
-    locationStatus.style.color = "white";
 }
 
 function updateQuestionsList() {
@@ -195,25 +237,54 @@ window.removeQuestion = (index) => {
 
 // Start Game Flow
 startQuizBtn.addEventListener('click', () => {
+    const name = usernameInput.value.trim() || "Host"; // Fallback name
     const roomId = Math.random().toString(36).substring(2, 6).toUpperCase();
 
     const roomData = {
-        host: currentPlayer.name,
-        status: 'lobby',
+        host: name,
+        status: 'lobby', // Important: Lobby state!
         questions: quizDraft,
         currentQuestionIndex: -1,
-        players: {} // Add host as observer? Or just player?
+        players: {}
     };
 
     db.ref('rooms/' + roomId).set(roomData)
         .then(() => {
             console.log("Room created:", roomId);
-            alert("Quiz skapat! Rum: " + roomId);
-            // TODO: Navigate to Lobby (Next Step)
+            enterLobby(roomId, true); // true = isHost
         });
 });
 
-// --- Join Room (Legacy Support for now) ---
+function enterLobby(roomId, isHost) {
+    hostScreen.classList.add('hidden');
+    startScreen.classList.add('hidden');
+    // For now, simpler game screen usage
+    gameScreen.classList.remove('hidden');
+    initMap(false); // Map view only
+
+    alert(`LOBBY STARTED!\nRoom Code: ${roomId}\n(Delas med vänner)\n\nHost kan snart starta spelet härifrån.`);
+    document.getElementById('round-info').textContent = `Lobby: ${roomId}`;
+}
+
+// Join Room Logic
 joinRoomBtn.addEventListener('click', () => {
-    alert("Funktion under konstruktion för nya systemet.");
+    const name = usernameInput.value.trim();
+    const code = roomCodeInput.value.trim().toUpperCase();
+
+    if (!name || !code) { alert("Fyll i namn och kod!"); return; }
+
+    // Check if room exists
+    db.ref('rooms/' + code).once('value', snap => {
+        if (snap.exists()) {
+            const userId = db.ref().child('rooms').push().key;
+            db.ref(`rooms/${code}/players/${userId}`).set({
+                name: name,
+                score: 0
+            }).then(() => {
+                enterLobby(code, false);
+            });
+        } else {
+            alert("Rummet finns inte!");
+        }
+    });
 });
