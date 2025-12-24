@@ -27,7 +27,9 @@
             </div>
 
             <div class="action-buttons">
-                <button id="create-room-btn" class="btn primary">Skapa Rum</button>
+                <!-- Changed: Create Room now leads to Host Mode -->
+                <button id="host-mode-btn" class="btn primary">Skapa Quiz (Host)</button>
+
                 <div class="join-section">
                     <input type="text" id="room-code-input" placeholder="Rumskod" autocomplete="off">
                     <button id="join-room-btn" class="btn secondary">Gå med</button>
@@ -37,13 +39,69 @@
             <div id="status-message" class="status-msg">Ansluter till server...</div>
         </div>
 
-        <!-- Game Screen (Hidden initially) -->
+        <!-- Host Quiz Creator Screen -->
+        <div id="host-screen" class="glass-panel hidden wide-panel">
+            <h2>Skapa Frågor</h2>
+            <div class="header-actions">
+                <button id="back-to-start-btn" class="btn small">← Tillbaka</button>
+            </div>
+
+            <div class="question-form">
+                <div class="input-group">
+                    <label>Fråga</label>
+                    <input type="text" id="q-text" placeholder="T.ex. Var ligger..." autocomplete="off">
+                </div>
+
+                <div class="input-group">
+                    <label>Bild-URL (Frivillig)</label>
+                    <input type="text" id="q-image" placeholder="https://..." autocomplete="off">
+                </div>
+
+                <div class="form-row">
+                    <div class="input-group half">
+                        <label>Tid (sek)</label>
+                        <input type="number" id="q-time" value="30" min="5" max="300">
+                    </div>
+                    <div class="input-group half">
+                        <label>Plats</label>
+                        <button id="pick-location-btn" class="btn secondary">📍 Välj på karta</button>
+                        <span id="location-status" class="status-indicator">Ännu ej vald</span>
+                    </div>
+                </div>
+
+                <button id="add-question-btn" class="btn primary full-width">Lägg till Fråga</button>
+            </div>
+
+            <div class="questions-list-container">
+                <h3>Dina Frågor (<span id="q-count">0</span>)</h3>
+                <ul id="questions-list">
+                    <!-- Added questions will appear here -->
+                </ul>
+            </div>
+
+            <div class="host-actions">
+                <button id="start-quiz-btn" class="btn success full-width" disabled>Starta Spel</button>
+            </div>
+        </div>
+
+        <!-- Game Screen (Map View) -->
         <div id="game-screen" class="hidden">
             <div id="map"></div>
+
+            <!-- Map Overlay UI -->
             <div class="game-ui overlay-top">
                 <div class="score-board glass-panel-mini">
-                    <span id="player-score">Poäng: 0</span>
-                    <span id="round-info">Runda: 1/5</span>
+                    <span id="player-score">Spelare: 0</span>
+                    <span id="round-info">Väntar...</span>
+                </div>
+            </div>
+
+            <!-- Interaction Overlay (For picking location) -->
+            <div id="map-picker-ui" class="overlay-bottom hidden">
+                <div class="glass-panel-mini">
+                    <p>Klicka på kartan för att sätta rätt svar.</p>
+                    <button id="confirm-location-btn" class="btn primary">Bekräfta Plats</button>
+                    <button id="cancel-picker-btn" class="btn secondary">Avbryt</button>
                 </div>
             </div>
         </div>
@@ -57,8 +115,8 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
-    <!-- App Logic (Version 1 for Cache Busting) -->
-    <script src="js/script.js?v=7"></script>
+    <!-- App Logic -->
+    <script src="js/script.js?v=8"></script>
 </body>
 
 </html>
