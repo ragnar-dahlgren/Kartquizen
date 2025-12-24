@@ -18,7 +18,7 @@ if (!firebase.apps.length) {
 
 // Explicitly get database reference
 // We try the default US URL first as a hypothesis fix.
-const db = firebase.database();
+const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
 
 console.log("Firebase initialized");
 
