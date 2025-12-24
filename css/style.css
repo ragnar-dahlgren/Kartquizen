@@ -5,24 +5,33 @@
     box-sizing: border-box;
 }
 
-body, html {
+body,
+html {
     height: 100%;
     font-family: 'Outfit', sans-serif;
     color: white;
     overflow: hidden;
 }
 
-/* Background - Dynamic Gradient */
+/* Background - Dynamic Gradient (Restored) */
 body {
-    background: #1a1a1a;
+    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
     background-size: 400% 400%;
     animation: gradientOriginal 15s ease infinite;
 }
 
 @keyframes gradientOriginal {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 /* App Container */
@@ -148,6 +157,8 @@ input[type="text"]:focus {
 #map {
     height: 100vh;
     width: 100vw;
+    background-color: #E6F3FF;
+    /* Pale Blue Water */
 }
 
 .game-ui {
@@ -163,9 +174,4 @@ input[type="text"]:focus {
     padding: 10px 20px;
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Map Background (Water Color) */
-#map {
-    background-color: #E6F3FF; /* White with slight blue tint */
 }

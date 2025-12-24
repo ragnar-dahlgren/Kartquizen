@@ -16,7 +16,7 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-console.log("Firebase initialized - VERSION 6 LOADED (GeoJSON)");
+console.log("Firebase initialized - VERSION 7 LOADED (Visuals Restored)");
 
 // Global State
 let currentPlayer = { id: null, name: null, score: 0 };
@@ -77,7 +77,7 @@ function initMap() {
                         fillColor: '#2E4A28', // Dark Moss Green (Land)
                         weight: 1,
                         opacity: 1,
-                        color: '#1a1a1a', // Border color
+                        color: '#34522F', // Subtle Green Border (Close to #2E4A28)
                         dashArray: '',
                         fillOpacity: 1
                     };
