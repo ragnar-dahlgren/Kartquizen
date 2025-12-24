@@ -153,7 +153,14 @@
                 </div>
             </div>
 
-            <!-- Question Overlay (Top) -->
+            <!-- Wait Overlay (Prep Phase) - NEW -->
+            <div id="wait-overlay" class="game-ui overlay-center hidden">
+                <h2 id="wait-text">Laddar fråga...</h2>
+                <button id="host-show-question-btn" class="btn success full-width hidden"
+                    style="font-size: 1.2rem; margin-top:20px;">Visa Fråga 👁️</button>
+            </div>
+
+            <!-- Question Overlay (Preview & Action) -->
             <div id="question-overlay" class="game-ui overlay-top hidden">
                 <div class="glass-panel-mini question-box">
                     <h3 id="game-question-text">Laddar fråga...</h3>
@@ -173,7 +180,7 @@
                 </div>
             </div>
 
-            <!-- Feedback Overlay (Middle/Notification) -->
+            <!-- Feedback Overlay (Result) -->
             <div id="feedback-overlay" class="game-ui overlay-center hidden">
                 <h1 id="feedback-text">RÄTT!</h1>
                 <p id="feedback-subtext">+500 poäng</p>
@@ -224,11 +231,11 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic (v15 + forced check) -->
-    <script src="js/script.js?v=15"></script>
+    <!-- App Logic (v17 + check) -->
+    <script src="js/script.js?v=17"></script>
     <script>
         // Check for new UI element
-        if (!document.getElementById('host-start-round-btn')) {
+        if(!document.getElementById('host-show-question-btn')) {
             window.location.reload(true);
         }
     </script>
