@@ -96,7 +96,6 @@
                         </div>
 
                         <div class="form-actions">
-                            <!-- Removed "Test Question" button -->
                             <button id="add-question-btn" class="btn primary full-width">Lägg till Fråga</button>
                             <button id="update-question-btn" class="btn success full-width hidden">Uppdatera</button>
                             <button id="cancel-edit-btn" class="btn secondary hidden">Avbryt</button>
@@ -144,8 +143,15 @@
         <div id="game-screen" class="hidden">
             <div id="map"></div>
 
-            <!-- Exit Test Button (Dry Run only) -->
-            <button id="exit-test-btn" class="btn secondary small overlay-btn hidden">✖ Avsluta Test</button>
+            <!-- Test Controls (Dry Run) -->
+            <div id="test-controls" class="overlay-btn hidden"
+                style="top: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px;">
+                <button id="exit-test-btn" class="btn secondary small">✖ Avsluta</button>
+                <div style="display: flex; gap: 5px;">
+                    <button id="prev-test-btn" class="btn primary small">←</button>
+                    <button id="next-test-btn" class="btn primary small">→</button>
+                </div>
+            </div>
 
             <!-- Question Overlay (Top) -->
             <div id="question-overlay" class="game-ui overlay-top hidden">
@@ -154,10 +160,16 @@
                     <div id="game-image-container" class="hidden">
                         <img id="game-question-image" src="" alt="Frågebild">
                     </div>
+
+                    <!-- Timer & Actions -->
                     <div class="timer-bar">
                         <div id="timer-fill"></div>
                     </div>
                     <div id="timer-text">30</div>
+
+                    <!-- Host Manual Start Button -->
+                    <button id="host-start-round-btn" class="btn success full-width hidden"
+                        style="margin-top: 10px; font-size: 1.2rem;">Starta Gissning ▶</button>
                 </div>
             </div>
 
@@ -212,12 +224,11 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic (v14 + forced check) -->
-    <script src="js/script.js?v=14"></script>
+    <!-- App Logic (v15 + forced check) -->
+    <script src="js/script.js?v=15"></script>
     <script>
         // Check for new UI element
-        if (!document.getElementById('host-layout-grid') && !document.querySelector('.host-layout-grid')) {
-            // alert("Ny design laddas..."); // Silent refresh better?
+        if (!document.getElementById('host-start-round-btn')) {
             window.location.reload(true);
         }
     </script>

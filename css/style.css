@@ -44,6 +44,19 @@ body {
     position: relative;
 }
 
+/* Success Text Shadow */
+.status-msg {
+    margin-top: 15px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.status-connected {
+    color: #4caf50;
+    text-shadow: 0 0 3px #ffffff;
+    /* White shadow for visibility */
+}
+
 /* Glass Panels */
 .glass-panel {
     background: rgba(255, 255, 255, 0.1);
@@ -282,7 +295,8 @@ input[type="number"] {
 #map {
     height: 100vh;
     width: 100vw;
-    background-color: #E6F3FF;
+    background-color: #2b1d3d;
+    /* DEEP PURPLE OCEAN */
 }
 
 .game-ui {
@@ -337,9 +351,8 @@ input[type="number"] {
 
 .overlay-btn {
     position: absolute;
-    top: 20px;
-    left: 20px;
     z-index: 1100;
+    pointer-events: auto;
 }
 
 /* Minimized Question Box */

@@ -15,7 +15,7 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-console.log("Firebase initialized - VERSION 14 LOADED (UX Refine + Mobile Fix)");
+console.log("Firebase initialized - VERSION 15 LOADED (Join Fix + Manual Start + Aesthetics)");
 
 // --- Global State ---
 let currentPlayer = { id: null, name: null, score: 0 };
@@ -33,7 +33,7 @@ let timerInterval = null;
 let playerGuessMarker = null;
 let correctMarker = null;
 let answerLine = null;
-let editingIndex = -1; // New: Tracks which question we are editing
+let editingIndex = -1;
 
 // --- DOM Elements ---
 const startScreen = document.getElementById('start-screen');
@@ -44,7 +44,6 @@ const mapPickerUI = document.getElementById('map-picker-ui');
 const statusMessage = document.getElementById('status-message');
 const loadQuizSection = document.getElementById('load-quiz-section');
 
-// Game UI Elements
 const questionOverlay = document.getElementById('question-overlay');
 const questionBox = document.querySelector('.question-box');
 const gameQuestionText = document.getElementById('game-question-text');
@@ -61,16 +60,19 @@ const leaderboardOverlay = document.getElementById('leaderboard-overlay');
 const liveLeaderboardList = document.getElementById('live-leaderboard-list');
 const submitGuessBtn = document.getElementById('submit-guess-btn');
 const pickerInstruction = document.getElementById('picker-instruction');
-const exitTestBtn = document.getElementById('exit-test-btn'); // New
 
-// Buttons & Inputs
+const exitTestBtn = document.getElementById('exit-test-btn');
+const prevTestBtn = document.getElementById('prev-test-btn'); // New
+const nextTestBtn = document.getElementById('next-test-btn'); // New
+const hostStartRoundBtn = document.getElementById('host-start-round-btn'); // New
+
 const hostModeBtn = document.getElementById('host-mode-btn');
 const joinRoomBtn = document.getElementById('join-room-btn');
 const backToStartBtn = document.getElementById('back-to-start-btn');
 const pickLocationBtn = document.getElementById('pick-location-btn');
 const addQuestionBtn = document.getElementById('add-question-btn');
-const updateQuestionBtn = document.getElementById('update-question-btn'); // New
-const cancelEditBtn = document.getElementById('cancel-edit-btn'); // New
+const updateQuestionBtn = document.getElementById('update-question-btn');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const startQuizBtn = document.getElementById('start-quiz-btn');
 const confirmLocationBtn = document.getElementById('confirm-location-btn');
 const cancelPickerBtn = document.getElementById('cancel-picker-btn');
@@ -78,6 +80,7 @@ const lobbyStartBtn = document.getElementById('lobby-start-btn');
 const testRunBtn = document.getElementById('test-run-btn');
 const saveQuizBtn = document.getElementById('save-quiz-btn');
 const loadQuizBtn = document.getElementById('load-quiz-btn');
+const testControls = document.getElementById('test-controls'); // New container
 
 const usernameInput = document.getElementById('username-input');
 const roomCodeInput = document.getElementById('room-code-input');
@@ -104,11 +107,10 @@ const connectedRef = db.ref(".info/connected");
 connectedRef.on("value", (snap) => {
     if (snap.val() === true) {
         statusMessage.textContent = "Ansluten till server ✓";
-        statusMessage.style.color = "#4caf50";
+        statusMessage.classList.add('status-connected'); // CSS shadow
         joinRoomBtn.disabled = false;
     } else {
         statusMessage.textContent = "Ansluter...";
-        statusMessage.style.color = "#ffeb3b";
     }
 });
 
@@ -122,12 +124,20 @@ function initMap(interactive = false) {
         });
         map.setView([20, 0], 2);
 
+        // AESTHETICS: Pink/Blue Theme
         fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
             .then(res => res.json())
             .then(data => {
                 L.geoJSON(data, {
                     style: function () {
-                        return { fillColor: '#2E4A28', weight: 1, opacity: 1, color: '#34522F', fillOpacity: 1 };
+                        // PINK (#E73C7E) body, BLUE (#23A6D5) outline, 
+                        return {
+                            fillColor: '#E73C7E',
+                            weight: 1,
+                            opacity: 1,
+                            color: '#23A6D5',
+                            fillOpacity: 0.8
+                        };
                     }
                 }).addTo(map);
             });
@@ -171,6 +181,34 @@ backToStartBtn.addEventListener('click', () => {
     startScreen.classList.remove('hidden');
 });
 
+// FIX: JOIN LISTENER WAS MISSING!
+joinRoomBtn.addEventListener('click', () => {
+    const name = usernameInput.value.trim();
+    const room = roomCodeInput.value.trim().toUpperCase();
+
+    if (!name) { alert("Fyll i ditt namn!"); return; }
+    if (!room) { alert("Fyll i rumskod!"); return; }
+
+    // Check if room exists
+    db.ref('rooms/' + room).once('value', snapshot => {
+        if (snapshot.exists()) {
+            const userId = "player_" + Math.random().toString(36).substring(2, 8);
+            currentPlayer = { id: userId, name: name, score: 0 };
+
+            // Add player to room
+            db.ref(`rooms/${room}/players/${userId}`).set({
+                name: name,
+                score: 0
+            }).then(() => {
+                enterLobby(room, false);
+            });
+        } else {
+            alert("Rummet hittades inte!");
+        }
+    });
+});
+
+
 // --- PERSISTENCE ---
 saveQuizBtn.addEventListener('click', () => {
     if (quizDraft.length === 0) { alert("Inga frågor att spara!"); return; }
@@ -204,15 +242,14 @@ loadQuizBtn.addEventListener('click', () => {
     });
 });
 
-
-// --- MAP PICKER ---
+// --- HOST FORM (Not changed significantly, just utility) ---
 pickLocationBtn.addEventListener('click', () => {
     hostScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
     mapPickerUI.classList.remove('hidden');
     submitGuessBtn.classList.add('hidden');
     confirmLocationBtn.classList.remove('hidden');
-    exitTestBtn.classList.add('hidden'); // Hide test exit button during picker
+    testControls.classList.add('hidden');
     initMap(true);
 
     const lat = parseFloat(qLat.value);
@@ -257,7 +294,6 @@ cancelPickerBtn.addEventListener('click', () => {
     if (tempMarker) map.removeLayer(tempMarker);
 });
 
-// --- HOST FORM LOGIC (Create/Edit) ---
 qLat.addEventListener('change', () => {
     const lat = parseFloat(qLat.value);
     const lng = parseFloat(qLng.value);
@@ -273,56 +309,24 @@ function getFormData() {
     const text = qText.value.trim();
     if (!text) { alert("Skriv en fråga!"); return null; }
     if (!selectedLocation && !qLat.value) { alert("Ange koordinater!"); return null; }
-
-    // Ensure selectedLocation is sync
-    if (!selectedLocation) {
-        selectedLocation = { lat: parseFloat(qLat.value), lng: parseFloat(qLng.value) };
-    }
-
-    return {
-        id: Date.now(),
-        text: text,
-        image: qImage.value.trim(),
-        timeLimit: parseInt(qTime.value),
-        correctAnswer: selectedLocation
-    };
+    if (!selectedLocation) selectedLocation = { lat: parseFloat(qLat.value), lng: parseFloat(qLng.value) };
+    return { id: Date.now(), text: text, image: qImage.value.trim(), timeLimit: parseInt(qTime.value), correctAnswer: selectedLocation };
 }
 
 addQuestionBtn.addEventListener('click', () => {
     const q = getFormData();
-    if (q) {
-        quizDraft.push(q);
-        updateQuestionsList();
-        resetForm();
-    }
+    if (q) { quizDraft.push(q); updateQuestionsList(); resetForm(); }
 });
-
 updateQuestionBtn.addEventListener('click', () => {
     if (editingIndex === -1) return;
     const q = getFormData();
-    if (q) {
-        quizDraft[editingIndex] = q;
-        editingIndex = -1;
-        updateQuestionsList();
-        resetForm();
-    }
+    if (q) { quizDraft[editingIndex] = q; editingIndex = -1; updateQuestionsList(); resetForm(); }
 });
-
 cancelEditBtn.addEventListener('click', resetForm);
 
 function resetForm() {
-    qText.value = "";
-    qImage.value = "";
-    qTime.value = 30;
-    qLat.value = "";
-    qLng.value = "";
-    selectedLocation = null;
-    editingIndex = -1;
-
-    // Switch buttons
-    addQuestionBtn.classList.remove('hidden');
-    updateQuestionBtn.classList.add('hidden');
-    cancelEditBtn.classList.add('hidden');
+    qText.value = ""; qImage.value = ""; qTime.value = 30; qLat.value = ""; qLng.value = ""; selectedLocation = null; editingIndex = -1;
+    addQuestionBtn.classList.remove('hidden'); updateQuestionBtn.classList.add('hidden'); cancelEditBtn.classList.add('hidden');
 }
 
 function updateQuestionsList() {
@@ -330,16 +334,13 @@ function updateQuestionsList() {
     quizDraft.forEach((q, index) => {
         const li = document.createElement('li');
         li.innerHTML = `
-            <div class="q-info">
-                <span class="q-text-preview">${index + 1}. ${q.text}</span>
-            </div>
+            <div class="q-info"><span class="q-text-preview">${index + 1}. ${q.text}</span></div>
             <div class="q-controls">
                 <button class="btn secondary small" onclick="moveQuestion(${index}, -1)">↑</button>
                 <button class="btn secondary small" onclick="moveQuestion(${index}, 1)">↓</button>
                 <button class="btn primary small" onclick="editQuestion(${index})">✎</button>
                 <button class="btn warn small" onclick="removeQuestion(${index})">X</button>
-            </div>
-        `;
+            </div>`;
         questionsList.appendChild(li);
     });
     qCount.textContent = quizDraft.length;
@@ -348,46 +349,28 @@ function updateQuestionsList() {
     saveQuizBtn.disabled = quizDraft.length === 0;
 }
 
-window.removeQuestion = (index) => {
-    quizDraft.splice(index, 1);
-    updateQuestionsList();
-};
-
+window.removeQuestion = (index) => { quizDraft.splice(index, 1); updateQuestionsList(); };
 window.moveQuestion = (index, direction) => {
-    if (direction === -1 && index > 0) {
-        [quizDraft[index], quizDraft[index - 1]] = [quizDraft[index - 1], quizDraft[index]];
-    } else if (direction === 1 && index < quizDraft.length - 1) {
-        [quizDraft[index], quizDraft[index + 1]] = [quizDraft[index + 1], quizDraft[index]];
-    }
+    if (direction === -1 && index > 0) [quizDraft[index], quizDraft[index - 1]] = [quizDraft[index - 1], quizDraft[index]];
+    else if (direction === 1 && index < quizDraft.length - 1) [quizDraft[index], quizDraft[index + 1]] = [quizDraft[index + 1], quizDraft[index]];
     updateQuestionsList();
 };
-
 window.editQuestion = (index) => {
     const q = quizDraft[index];
-    qText.value = q.text;
-    qImage.value = q.image;
-    qTime.value = q.timeLimit;
-    qLat.value = q.correctAnswer.lat;
-    qLng.value = q.correctAnswer.lng;
-    selectedLocation = q.correctAnswer;
-
-    editingIndex = index;
-    addQuestionBtn.classList.add('hidden');
-    updateQuestionBtn.classList.remove('hidden');
-    cancelEditBtn.classList.remove('hidden');
+    qText.value = q.text; qImage.value = q.image; qTime.value = q.timeLimit; qLat.value = q.correctAnswer.lat; qLng.value = q.correctAnswer.lng; selectedLocation = q.correctAnswer;
+    editingIndex = index; addQuestionBtn.classList.add('hidden'); updateQuestionBtn.classList.remove('hidden'); cancelEditBtn.classList.remove('hidden');
 };
 
 
 // --- GAME ENGINE ---
 
-// Dry Run
 testRunBtn.addEventListener('click', () => {
     gameQuestions = [...quizDraft];
     isGlobalHost = true;
     isDryRun = true;
     hostScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
-    exitTestBtn.classList.remove('hidden'); // Show exit button
+    testControls.classList.remove('hidden');
     initMap(false);
 
     currentQIndex = 0;
@@ -395,28 +378,21 @@ testRunBtn.addEventListener('click', () => {
     startQuestionPhase1();
 });
 
-// Exit Dry Run
+// DRY RUN NAV
+prevTestBtn.addEventListener('click', () => {
+    if (currentQIndex > 0) { currentQIndex--; startQuestionPhase1(); }
+});
+nextTestBtn.addEventListener('click', () => {
+    if (currentQIndex < gameQuestions.length - 1) { currentQIndex++; startQuestionPhase1(); }
+});
 exitTestBtn.addEventListener('click', () => {
-    // Reset state
-    isDryRun = false;
-    isGlobalHost = false;
-
-    // Clear intervals
+    isDryRun = false; isGlobalHost = false;
     if (timerInterval) clearInterval(timerInterval);
-
-    // Hide Game UI
-    gameScreen.classList.add('hidden');
-    questionOverlay.classList.add('hidden');
-    mapPickerUI.classList.add('hidden');
-    feedbackOverlay.classList.add('hidden');
-    leaderboardOverlay.classList.add('hidden');
-
-    // Show Host Screen
+    gameScreen.classList.add('hidden'); questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden'); feedbackOverlay.classList.add('hidden'); leaderboardOverlay.classList.add('hidden'); testControls.classList.add('hidden');
     hostScreen.classList.remove('hidden');
 });
 
-
-// Real Game
+// REAL GAME
 startQuizBtn.addEventListener('click', () => {
     gameQuestions = [...quizDraft];
     const name = usernameInput.value.trim() || "Lekledare";
@@ -428,6 +404,7 @@ startQuizBtn.addEventListener('click', () => {
         status: 'lobby',
         questions: gameQuestions,
         currentQuestionIndex: -1,
+        questionPhase: 'idle', // New: Sync Phase
         players: {}
     };
 
@@ -464,6 +441,15 @@ function enterLobby(roomId, isHost) {
                 });
             }
         });
+
+        // PLAYER SYNC: Phase Listener
+        db.ref(`rooms/${roomId}/questionPhase`).on('value', (snap) => {
+            const phase = snap.val();
+            if (phase === 'action') {
+                // Trigger Phase 2 when Host says so
+                startQuestionPhase2(gameQuestions[currentQIndex]);
+            }
+        });
     }
 }
 
@@ -471,7 +457,8 @@ lobbyStartBtn.addEventListener('click', () => {
     if (!currentRoomId) return;
     db.ref(`rooms/${currentRoomId}`).update({
         status: 'game_active',
-        currentQuestionIndex: 0
+        currentQuestionIndex: 0,
+        questionPhase: 'preview' // Initial phase
     });
     startGameFlow();
 });
@@ -479,22 +466,23 @@ lobbyStartBtn.addEventListener('click', () => {
 function startGameFlow() {
     lobbyScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
-    exitTestBtn.classList.add('hidden'); // No exit in real game
+    testControls.classList.add('hidden');
     initMap(false);
     currentQIndex = 0;
+
+    // Players wait for 'preview' or just load default
     startQuestionPhase1();
 }
 
+// --- PHASE 1: PREVIEW (Reading) ---
 function startQuestionPhase1() {
-    if (currentQIndex >= gameQuestions.length) {
-        endGame();
-        return;
-    }
+    if (currentQIndex >= gameQuestions.length) { endGame(); return; }
     if (map) map.setView([20, 0], 2);
 
     const question = gameQuestions[currentQIndex];
     document.getElementById('round-info').textContent = `Fråga: ${currentQIndex + 1}/${gameQuestions.length}`;
 
+    // Cleanup
     if (playerGuessMarker) map.removeLayer(playerGuessMarker);
     if (correctMarker) map.removeLayer(correctMarker);
     if (answerLine) map.removeLayer(answerLine);
@@ -502,17 +490,14 @@ function startQuestionPhase1() {
 
     disableMapInteraction();
 
-    feedbackOverlay.classList.add('hidden');
-    leaderboardOverlay.classList.add('hidden');
-    questionOverlay.classList.remove('hidden');
-    questionBox.classList.remove('minimized');
+    feedbackOverlay.classList.add('hidden'); leaderboardOverlay.classList.add('hidden');
+    questionOverlay.classList.remove('hidden'); questionBox.classList.remove('minimized');
     mapPickerUI.classList.add('hidden');
 
     gameQuestionText.textContent = question.text;
     if (question.image) {
         gameQuestionImage.src = question.image;
-        gameImageContainer.classList.remove('hidden');
-        gameImageContainer.classList.remove('mini-img');
+        gameImageContainer.classList.remove('hidden'); gameImageContainer.classList.remove('mini-img');
     } else {
         gameImageContainer.classList.add('hidden');
     }
@@ -520,26 +505,39 @@ function startQuestionPhase1() {
     timerText.textContent = "Läs frågan...";
     timerFill.style.width = "100%";
 
-    setTimeout(() => {
-        startQuestionPhase2(question);
-    }, 4000);
+    // HOST/DRYRUN CONTROL: Manual Start button
+    if (isGlobalHost || isDryRun) {
+        // Sync Preview Phase for everyone
+        if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('preview');
+
+        // Show Button
+        hostStartRoundBtn.classList.remove('hidden');
+        hostStartRoundBtn.onclick = () => {
+            // Click -> Trigger Phase 2 locally & Remotely
+            if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('action');
+            startQuestionPhase2(question);
+        };
+    } else {
+        // Players just wait. They don't timeout. 
+        // The 'questionPhase' listener above handles triggering Phase 2.
+        hostStartRoundBtn.classList.add('hidden');
+    }
 }
 
+// --- PHASE 2: ACTION (Guessing) ---
 function startQuestionPhase2(question) {
+    hostStartRoundBtn.classList.add('hidden'); // Hide start button
     questionBox.classList.add('minimized');
     if (question.image) gameImageContainer.classList.add('mini-img');
 
     mapPickerUI.classList.remove('hidden');
 
-    // HOST BLOCKING LOGIC
     if (isGlobalHost && !isDryRun) {
-        // Real Lekledare cannot guess
         submitGuessBtn.classList.add('hidden');
         pickerInstruction.textContent = "Spelarna gissar nu...";
         timerText.textContent = "Tid kvar";
-        disableMapInteraction(); // Block clicks
+        disableMapInteraction();
     } else {
-        // Player or Dry Run
         submitGuessBtn.classList.remove('hidden');
         confirmLocationBtn.classList.add('hidden');
         pickerInstruction.textContent = "Klicka på kartan nu!";
@@ -566,117 +564,66 @@ function startQuestionPhase2(question) {
 
 submitGuessBtn.addEventListener('click', () => {
     if (!tempMarker) { alert("Välj en plats först!"); return; }
-    playerGuessMarker = tempMarker;
-    tempMarker = null;
+    playerGuessMarker = tempMarker; tempMarker = null;
     disableMapInteraction();
-    questionOverlay.classList.add('hidden');
-    mapPickerUI.classList.add('hidden');
+    questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
     feedbackOverlay.classList.remove('hidden');
-    feedbackText.textContent = "Registrerat!";
-    feedbackSubtext.textContent = "Väntar på rättning...";
+    feedbackText.textContent = "Registrerat!"; feedbackSubtext.textContent = "Väntar på rättning...";
 
-    if (isDryRun) {
-        clearInterval(timerInterval);
-        showRoundResult();
-    }
+    if (isDryRun) { clearInterval(timerInterval); showRoundResult(); }
 });
 
 function timeIsUp() {
     disableMapInteraction();
-    questionOverlay.classList.add('hidden');
-    mapPickerUI.classList.add('hidden');
-    feedbackText.textContent = "Tiden ute!";
-    feedbackSubtext.textContent = "Väntar på rättning...";
+    questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
+    feedbackText.textContent = "Tiden ute!"; feedbackSubtext.textContent = "Väntar på rättning...";
     showRoundResult();
 }
 
 function showRoundResult() {
     const question = gameQuestions[currentQIndex];
     const correctLatLng = question.correctAnswer;
+    correctMarker = L.marker([correctLatLng.lat, correctLatLng.lng], { icon: L.divIcon({ className: 'correct-marker', html: '📍', iconSize: [30, 30] }) }).addTo(map);
 
-    correctMarker = L.marker([correctLatLng.lat, correctLatLng.lng], {
-        icon: L.divIcon({ className: 'correct-marker', html: '📍', iconSize: [30, 30] })
-    }).addTo(map);
-
-    let roundPoints = 0;
-    let distText = "Inget svar";
-
+    let roundPoints = 0; let distText = "Inget svar";
     if (playerGuessMarker) {
         const guessLatLng = playerGuessMarker.getLatLng();
         const distKm = calculateDistance(correctLatLng.lat, correctLatLng.lng, guessLatLng.lat, guessLatLng.lng);
         answerLine = L.polyline([guessLatLng, correctLatLng], { color: 'red', dashArray: '5, 10' }).addTo(map);
         map.fitBounds(answerLine.getBounds(), { padding: [50, 50] });
-        distText = `${Math.round(distKm)} km`;
-        roundPoints = Math.max(0, 1000 - Math.round(distKm / 2));
-    } else {
-        map.setView([correctLatLng.lat, correctLatLng.lng], 5);
-    }
+        distText = `${Math.round(distKm)} km`; roundPoints = Math.max(0, 1000 - Math.round(distKm / 2));
+    } else { map.setView([correctLatLng.lat, correctLatLng.lng], 5); }
 
-    // Only update score if I am guessing (Player or Dry Run)
     if (!isGlobalHost || isDryRun) {
         currentPlayer.score += roundPoints;
-        feedbackText.textContent = roundPoints > 0 ? `+${roundPoints} p` : "0 p";
-        feedbackSubtext.textContent = distText;
+        feedbackText.textContent = roundPoints > 0 ? `+${roundPoints} p` : "0 p"; feedbackSubtext.textContent = distText;
         document.getElementById('player-score').textContent = `Poäng: ${currentPlayer.score}`;
-    } else {
-        feedbackText.textContent = "RÄTT SVAR";
-        feedbackSubtext.textContent = "Visas på kartan";
-    }
+    } else { feedbackText.textContent = "RÄTT SVAR"; feedbackSubtext.textContent = "Visas på kartan"; }
 
-    if (isGlobalHost) {
-        gotoLeaderboardBtn.classList.remove('hidden');
-        nextQuestionBtn.classList.add('hidden');
-    }
+    if (isGlobalHost) { gotoLeaderboardBtn.classList.remove('hidden'); nextQuestionBtn.classList.add('hidden'); }
 }
 
 gotoLeaderboardBtn.addEventListener('click', () => {
-    feedbackOverlay.classList.add('hidden');
-    leaderboardOverlay.classList.remove('hidden');
-    liveLeaderboardList.innerHTML = "";
-
-    // Dry Run specific: Show local player
+    feedbackOverlay.classList.add('hidden'); leaderboardOverlay.classList.remove('hidden'); liveLeaderboardList.innerHTML = "";
     if (isDryRun) {
-        const li = document.createElement('li');
-        li.innerHTML = `<strong>Jag</strong>: ${currentPlayer.score} p`;
-        liveLeaderboardList.appendChild(li);
+        const li = document.createElement('li'); li.innerHTML = `<strong>Jag</strong>: ${currentPlayer.score} p`; liveLeaderboardList.appendChild(li);
     } else {
-        // Multiplayer Placeholder
-        const li = document.createElement('li');
-        li.innerHTML = `Top list laddas... (Väntar på FB-sync i nästa steg)`;
-        liveLeaderboardList.appendChild(li);
+        const li = document.createElement('li'); li.innerHTML = `Top list laddas...`; liveLeaderboardList.appendChild(li);
     }
 });
 
-nextQuestionBtn.addEventListener('click', () => {
-    leaderboardOverlay.classList.add('hidden');
-    currentQIndex++;
-    startQuestionPhase1();
-});
-
+nextQuestionBtn.addEventListener('click', () => { leaderboardOverlay.classList.add('hidden'); currentQIndex++; startQuestionPhase1(); });
 function endGame() {
-    feedbackOverlay.classList.remove('hidden');
-    leaderboardOverlay.classList.add('hidden');
-    feedbackText.textContent = "SPELET SLUT";
-    feedbackSubtext.textContent = "";
-    gotoLeaderboardBtn.textContent = "Avsluta / Starta Om";
-    gotoLeaderboardBtn.classList.remove('hidden');
+    feedbackOverlay.classList.remove('hidden'); leaderboardOverlay.classList.add('hidden');
+    feedbackText.textContent = "SPELET SLUT"; feedbackSubtext.textContent = "";
+    gotoLeaderboardBtn.textContent = "Avsluta / Starta Om"; gotoLeaderboardBtn.classList.remove('hidden');
     gotoLeaderboardBtn.onclick = () => window.location.reload();
 }
-
 function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return R * c;
 }
-
-// Auto-join from URL
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('room');
-if (roomParam) {
-    roomCodeInput.value = roomParam;
-}
+if (roomParam) { roomCodeInput.value = roomParam; }
