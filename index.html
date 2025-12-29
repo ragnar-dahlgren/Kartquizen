@@ -8,9 +8,11 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
+    <!-- Open Location Code (Plus Codes) -->
+    <script src="https://cdn.jsdelivr.net/npm/open-location-code@1.0.2/openlocationcode.min.js"></script>
 </head>
 
 <body>
@@ -84,6 +86,18 @@
                                 <input type="number" id="q-time" value="30" min="5" max="300">
                             </div>
                         </div>
+
+                        <!-- Plus Code Input -->
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Plus Code (Frivillig)</label>
+                                <div style="display:flex; gap:5px;">
+                                    <input type="text" id="q-plus-code" placeholder="T.ex. 9C3XGV00+" style="flex:1;">
+                                    <button id="convert-plus-btn" class="btn info small" title="Hämta plats">📍</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-row">
                             <div class="input-group">
                                 <label>Plats (Lat/Lng)</label>
@@ -153,7 +167,7 @@
                 </div>
             </div>
 
-            <!-- Wait Overlay (Prep Phase) - NEW -->
+            <!-- Wait Overlay (Prep Phase) -->
             <div id="wait-overlay" class="game-ui overlay-center hidden">
                 <h2 id="wait-text">Laddar fråga...</h2>
                 <button id="host-show-question-btn" class="btn success full-width hidden"
@@ -187,7 +201,7 @@
                 <button id="goto-leaderboard-btn" class="btn primary hidden">Visa Poängställning →</button>
             </div>
 
-            <!-- Leaderboard Overlay (Full Screenish) -->
+            <!-- Leaderboard Overlay -->
             <div id="leaderboard-overlay" class="glass-panel hidden"
                 style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; width: 90%; max-width: 500px;">
                 <h2>Poängställning</h2>
@@ -199,7 +213,7 @@
                 </div>
             </div>
 
-            <!-- Score Overlay (Top Right - Always Visible) -->
+            <!-- Score Overlay -->
             <div class="game-ui overlay-right">
                 <div class="glass-panel-mini">
                     <span id="player-score">Poäng: 0</span>
@@ -207,7 +221,7 @@
                 </div>
             </div>
 
-            <!-- Interaction Overlay (For picking location in game) -->
+            <!-- Interaction Overlay -->
             <div id="map-picker-ui" class="overlay-bottom hidden">
                 <div class="glass-panel-mini">
                     <p id="picker-instruction">Klicka på kartan för att välja.</p>
@@ -231,11 +245,11 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic (v17 + check) -->
-    <script src="js/script.js?v=17"></script>
+    <!-- App Logic (v18 + check) -->
+    <script src="js/script.js?v=18"></script>
     <script>
         // Check for new UI element
-        if(!document.getElementById('host-show-question-btn')) {
+        if (!document.getElementById('q-plus-code')) {
             window.location.reload(true);
         }
     </script>

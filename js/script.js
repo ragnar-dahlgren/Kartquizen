@@ -15,7 +15,7 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-console.log("Firebase initialized - VERSION 17 LOADED (Manual Reveal + Sync Fix)");
+console.log("Firebase initialized - VERSION 18 LOADED (Plus Codes)");
 
 // --- Global State ---
 let currentPlayer = { id: null, name: null, score: 0 };
@@ -44,9 +44,9 @@ const mapPickerUI = document.getElementById('map-picker-ui');
 const statusMessage = document.getElementById('status-message');
 const loadQuizSection = document.getElementById('load-quiz-section');
 
-const waitOverlay = document.getElementById('wait-overlay'); // NEW
-const waitText = document.getElementById('wait-text'); // NEW
-const hostShowQuestionBtn = document.getElementById('host-show-question-btn'); // NEW
+const waitOverlay = document.getElementById('wait-overlay');
+const waitText = document.getElementById('wait-text');
+const hostShowQuestionBtn = document.getElementById('host-show-question-btn');
 
 const questionOverlay = document.getElementById('question-overlay');
 const questionBox = document.querySelector('.question-box');
@@ -96,6 +96,9 @@ const qImage = document.getElementById('q-image');
 const qTime = document.getElementById('q-time');
 const qLat = document.getElementById('q-lat');
 const qLng = document.getElementById('q-lng');
+const qPlusCode = document.getElementById('q-plus-code'); // NEW
+const convertPlusBtn = document.getElementById('convert-plus-btn'); // NEW
+
 const questionsList = document.getElementById('questions-list');
 const qCount = document.getElementById('q-count');
 const pickerLat = document.getElementById('picker-lat');
@@ -221,7 +224,36 @@ loadQuizBtn.addEventListener('click', () => {
     });
 });
 
-// --- Host Form Utils ---
+// --- Host Form Utils & Plus Codes ---
+
+convertPlusBtn.addEventListener('click', () => {
+    const code = qPlusCode.value.trim();
+    if (code.length < 8) {
+        alert("Ogiltig Plus Code. Måste vara minst 8 tecken (t.ex 9C3XGV00+).");
+        return;
+    }
+
+    try {
+        // Try decoding
+        // If short code, we ideally need a reference loc, but for now expect full or try simple decode
+        let fullCode = code;
+        if (!code.includes('+')) fullCode += '+'; // Crude fix
+
+        const codeArea = OpenLocationCode.decode(fullCode);
+        const lat = codeArea.latitudeCenter;
+        const lng = codeArea.longitudeCenter;
+
+        qLat.value = lat.toFixed(6);
+        qLng.value = lng.toFixed(6);
+        selectedLocation = { lat: lat, lng: lng };
+        alert(`Plats hittad!\nLat: ${lat.toFixed(4)}\nLng: ${lng.toFixed(4)}`);
+
+    } catch (e) {
+        alert("Kunde inte tyda Plus Code. Kontrollera formatet (ex. 8Q7X2222+22).");
+        console.error(e);
+    }
+});
+
 pickLocationBtn.addEventListener('click', () => {
     hostScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');
     mapPickerUI.classList.remove('hidden'); submitGuessBtn.classList.add('hidden'); confirmLocationBtn.classList.remove('hidden'); testControls.classList.add('hidden'); initMap(true);
@@ -256,7 +288,7 @@ function getFormData() {
     return { id: Date.now(), text: text, image: qImage.value.trim(), timeLimit: parseInt(qTime.value), correctAnswer: { lat, lng } };
 }
 function resetForm() {
-    qText.value = ""; qImage.value = ""; qTime.value = 30; qLat.value = ""; qLng.value = ""; selectedLocation = null; editingIndex = -1;
+    qText.value = ""; qImage.value = ""; qTime.value = 30; qLat.value = ""; qLng.value = ""; qPlusCode.value = ""; selectedLocation = null; editingIndex = -1;
     addQuestionBtn.classList.remove('hidden'); updateQuestionBtn.classList.add('hidden'); cancelEditBtn.classList.add('hidden');
 }
 function updateQuestionsList() {
@@ -474,8 +506,7 @@ function timeIsUp() {
     if (isGlobalHost || isDryRun) {
         showRoundResult();
     } else {
-        // Players wait for host to essentially 'reveal' result via phase? Or simply show incomplete result
-        // For simplicity: Players calculate locally if they have the answer (which they do in gameQuestions)
+        // Players wait for host or show local
         showRoundResult();
     }
 }
@@ -486,9 +517,6 @@ function showRoundResult() {
     correctMarker = L.marker([correctLatLng.lat, correctLatLng.lng]).addTo(map);
 
     let roundPoints = 0; let distText = "Inget svar";
-
-    // If Global Host, fetch all guesses? 
-    // For this simple version, we stick to local view + Score Sync
 
     if (playerGuessMarker) {
         const guessLatLng = playerGuessMarker.getLatLng();
@@ -540,7 +568,6 @@ nextQuestionBtn.addEventListener('click', () => {
             currentQuestionIndex: currentQIndex,
             questionPhase: 'prep'
         });
-        // Start locally too (host)
         startQuestionPhasePrep();
     }
 });

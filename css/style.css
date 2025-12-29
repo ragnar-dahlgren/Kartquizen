@@ -44,17 +44,23 @@ body {
     position: relative;
 }
 
-/* Success Text Shadow */
+/* Status Text - High Contrast Fix */
 .status-msg {
     margin-top: 15px;
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 700;
+    /* Bolder */
 }
 
 .status-connected {
-    color: #4caf50;
-    text-shadow: 0 0 3px #ffffff;
-    /* White shadow for visibility */
+    color: #000000;
+    /* Black Text */
+    text-shadow:
+        -1px -1px 0 #ffffff,
+        1px -1px 0 #ffffff,
+        -1px 1px 0 #ffffff,
+        1px 1px 0 #ffffff;
+    /* Solid White Outline */
 }
 
 /* Glass Panels */
@@ -76,7 +82,6 @@ body {
 
 .wide-panel {
     max-width: 900px;
-    /* Wider for 2 cols */
     padding: 2rem;
     text-align: left;
 }
@@ -218,6 +223,15 @@ input[type="number"] {
     color: white;
 }
 
+.btn.info {
+    background: #23a6d5;
+    color: white;
+    margin-top: 5px;
+    font-size: 0.9rem;
+    padding: 8px;
+}
+
+/* For Plus Code Btn */
 .btn.warn {
     background: #f44336;
     color: white;
@@ -329,9 +343,10 @@ input[type="number"] {
     right: 20px;
 }
 
+/* Moved map-picker to top area for players as requested */
 .overlay-bottom {
     position: absolute;
-    bottom: 30px;
+    top: 100px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
@@ -353,6 +368,16 @@ input[type="number"] {
     position: absolute;
     z-index: 1100;
     pointer-events: auto;
+}
+
+/* Question Box Image Sizing Fix */
+.question-box img {
+    max-width: 100%;
+    max-height: 250px;
+    /* Limit height so it doesn't cover everything */
+    object-fit: contain;
+    margin-top: 10px;
+    border-radius: 8px;
 }
 
 /* Minimized Question Box */
@@ -382,12 +407,14 @@ input[type="number"] {
 }
 
 .mini-img {
-    display: none;
+    display: none !important;
 }
 
+/* Actually hide image in minimized view */
 .question-box {
     transition: all 0.5s ease;
 }
+
 
 /* Helper */
 .hidden {
