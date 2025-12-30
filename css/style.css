@@ -55,7 +55,6 @@ body {
 .status-connected {
     color: rgba(255, 255, 255, 0.9);
     text-shadow: none;
-    /* Removed heavy shadow per request */
 }
 
 /* Glass Panels */
@@ -166,7 +165,6 @@ label {
     min-width: 80px;
 }
 
-/* Ensure they don't shrink too much */
 .form-row,
 .coords-row {
     display: flex;
@@ -174,8 +172,6 @@ label {
     margin-bottom: 1rem;
     align-items: center;
 }
-
-/* added align-items */
 
 input[type="text"],
 input[type="number"] {
@@ -194,7 +190,6 @@ input[type="number"] {
 
 input::placeholder {
     color: rgba(255, 255, 255, 0.8);
-    /* Stronger placeholder */
 }
 
 input:focus {
@@ -245,7 +240,6 @@ input:focus {
     padding: 8px;
 }
 
-/* For Plus Code Btn */
 .btn.warn {
     background: #f44336;
     color: white;
@@ -288,9 +282,7 @@ input:focus {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    /* Align to top for wrapped text */
     gap: 10px;
-    /* Space between text and buttons */
 }
 
 .q-info {
@@ -298,24 +290,20 @@ input:focus {
     min-width: 0;
 }
 
-/* Allow shrinking/wrapping */
 .q-text-preview {
     font-weight: 600;
     white-space: normal;
-    /* Allow wrapping */
     overflow: visible;
     text-overflow: clip;
     max-width: none;
     display: block;
     word-break: break-word;
-    /* Handle long words */
 }
 
 .q-controls {
     display: flex;
     gap: 5px;
     flex-shrink: 0;
-    /* Don't shrink buttons */
 }
 
 /* Save Controls */
@@ -338,8 +326,8 @@ input:focus {
 #map {
     height: 100vh;
     width: 100vw;
-    background-color: #2b1d3d;
-    /* DEEP PURPLE OCEAN */
+    background-color: #e0e0e0;
+    /* LIGHT GRAY FAILSAFE */
 }
 
 .game-ui {
@@ -372,7 +360,6 @@ input:focus {
     right: 20px;
 }
 
-/* Moved map-picker to top area for players as requested */
 .overlay-bottom {
     position: absolute;
     top: 100px;
@@ -403,7 +390,6 @@ input:focus {
 .question-box img {
     max-width: 100%;
     max-height: 250px;
-    /* Limit height so it doesn't cover everything */
     object-fit: contain;
     margin-top: 10px;
     border-radius: 8px;
@@ -426,19 +412,15 @@ input:focus {
     flex-direction: column;
     align-items: center;
     max-height: 35vh;
-    /* Allow it to grow but not cover map entirely */
     overflow-y: auto;
-    /* Scroll if text is massive */
 }
 
 .question-box.minimized h3 {
     font-size: 1.1rem;
-    /* Slightly larger */
     margin: 0;
     display: block;
     width: 100%;
     word-wrap: break-word;
-    /* Ensure wrapping */
 }
 
 .question-box.minimized #timer-text {
@@ -448,7 +430,7 @@ input:focus {
     color: #ffeb3b;
 }
 
-/* Result Controls (Host Shortcut) */
+/* Result Controls (Host Shortcut) - MEGA BUTTON */
 .result-controls {
     display: flex;
     gap: 10px;
@@ -456,11 +438,34 @@ input:focus {
     margin-top: 15px;
 }
 
+#direct-next-btn {
+    background-color: #4caf50;
+    color: white;
+    font-size: 1.2rem;
+    padding: 15px 40px;
+    border: 2px solid white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    font-weight: bold;
+}
+
+/* Version Marker */
+#version-tag {
+    position: fixed;
+    bottom: 5px;
+    left: 5px;
+    font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.5);
+    background: rgba(255, 255, 255, 0.7);
+    padding: 2px 5px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 9999;
+}
+
 .mini-img {
     display: none !important;
 }
 
-/* Actually hide image in minimized view */
 .question-box {
     transition: all 0.5s ease;
 }
