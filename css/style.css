@@ -417,21 +417,28 @@ input:focus {
     left: 50%;
     transform: translateX(-50%);
     width: 95%;
-    /* Slightly wider on mobile */
     max-width: 600px;
     padding: 15px;
-    /* More padding */
     background: rgba(0, 0, 0, 0.9);
     text-align: center;
-    /* Force center */
+    /* Fix for text cutoff */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-height: 35vh;
+    /* Allow it to grow but not cover map entirely */
+    overflow-y: auto;
+    /* Scroll if text is massive */
 }
 
 .question-box.minimized h3 {
-    font-size: 1rem;
+    font-size: 1.1rem;
+    /* Slightly larger */
     margin: 0;
     display: block;
-    /* Stack on mobile if needed */
     width: 100%;
+    word-wrap: break-word;
+    /* Ensure wrapping */
 }
 
 .question-box.minimized #timer-text {
@@ -439,6 +446,14 @@ input:focus {
     margin-top: 5px;
     font-weight: bold;
     color: #ffeb3b;
+}
+
+/* Result Controls (Host Shortcut) */
+.result-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 15px;
 }
 
 .mini-img {

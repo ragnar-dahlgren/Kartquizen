@@ -15,10 +15,10 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.app().database("https://kartquizen-default-rtdb.europe-west1.firebasedatabase.app");
-console.log("Firebase initialized - VERSION 19 LOADED (Distance Scoring & Fixes)");
+console.log("Firebase initialized - VERSION 23 LOADED (Light Map & Host Shortcut)");
 
 // --- Global State ---
-let currentPlayer = { id: null, name: null, score: 0 }; // Score = Total METERS (Lower is better)
+let currentPlayer = { id: null, name: null, score: 0 };
 let currentRoomId = null;
 let currentQuizId = null;
 let map = null;
@@ -58,8 +58,15 @@ const timerText = document.getElementById('timer-text');
 const feedbackOverlay = document.getElementById('feedback-overlay');
 const feedbackText = document.getElementById('feedback-text');
 const feedbackSubtext = document.getElementById('feedback-subtext');
+// Old button ref, kept for safety but functionality moved
 const nextQuestionBtn = document.getElementById('next-question-btn');
+
+// NEW HOST CONTROLS
+const hostResultControls = document.getElementById('host-result-controls');
 const gotoLeaderboardBtn = document.getElementById('goto-leaderboard-btn');
+const directNextBtn = document.getElementById('direct-next-btn');
+
+
 const leaderboardOverlay = document.getElementById('leaderboard-overlay');
 const liveLeaderboardList = document.getElementById('live-leaderboard-list');
 const submitGuessBtn = document.getElementById('submit-guess-btn');
@@ -109,7 +116,7 @@ const lobbyPlayerCount = document.getElementById('lobby-player-count');
 const lobbyStatusText = document.getElementById('lobby-status-text');
 const qrCodeContainer = document.getElementById('qrcode-container');
 
-const playerScoreDisplay = document.getElementById('player-score'); // New ref
+const playerScoreDisplay = document.getElementById('player-score');
 
 // --- Initialization ---
 const connectedRef = db.ref(".info/connected");
@@ -130,18 +137,24 @@ function initMap(interactive = false) {
             zoom: 2,
             minZoom: 2,
             maxBounds: [[-90, -180], [90, 180]],
-            zoomControl: false // Cleaner look, usually users pinch/scroll
+            zoomControl: false
         });
 
-        // SWITCH TO TILE MAP (CartoDB Dark Matter No Labels)
-        // detailed map with no text, shows lakes/borders/etc.
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+        // SWITCH TO TILE MAP (CartoDB VOYAGER No Labels)
+        // Distinct beige/green map. Very light.
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(map);
 
         map.setView([20, 0], 2);
+
+        // Add Version Tag if not exists
+        if (!document.getElementById('version-tag')) {
+            const v = document.createElement('div'); v.id = "version-tag"; v.textContent = "v24 (Voyager)";
+            document.body.appendChild(v);
+        }
     }
 
     map.off('click');
@@ -224,15 +237,9 @@ loadQuizBtn.addEventListener('click', () => {
 
 convertPlusBtn.addEventListener('click', () => {
     let input = qPlusCode.value.trim();
-
-    // Regex to extract Plus Code (e.g. "9C3XGV00+" or "MXG7+R6")
-    // Looks for 4+ alphanumeric chars, a plus sign, and 2+ alphanumeric chars.
     const match = input.match(/([a-zA-Z0-9]{4,}\+[a-zA-Z0-9]{2,})/);
-
     let codeToUse = input;
-    if (match) {
-        codeToUse = match[0]; // Use the extracted code
-    }
+    if (match) { codeToUse = match[0]; }
 
     if (codeToUse.length < 5 || !codeToUse.includes('+')) {
         alert("Kunde inte hitta en giltig Plus Code. (Försök klistra in exakt 'MXG7+R6')");
@@ -243,15 +250,11 @@ convertPlusBtn.addEventListener('click', () => {
         const codeArea = OpenLocationCode.decode(codeToUse);
         const lat = codeArea.latitudeCenter;
         const lng = codeArea.longitudeCenter;
-
-        qLat.value = lat.toFixed(6);
-        qLng.value = lng.toFixed(6);
+        qLat.value = lat.toFixed(6); qLng.value = lng.toFixed(6);
         selectedLocation = { lat: lat, lng: lng };
         alert(`Plats hittad för kod: ${codeToUse}\nLat: ${lat.toFixed(4)}\nLng: ${lng.toFixed(4)}`);
-
     } catch (e) {
-        alert("Kunde inte tolka koden. Prova att söka upp platsen manuellt.");
-        console.error(e);
+        alert("Kunde inte tolka koden. Prova att söka upp platsen manuellt."); console.error(e);
     }
 });
 
@@ -379,11 +382,9 @@ function enterLobby(roomId, isHost) {
 
         db.ref(`rooms/${roomId}/questionPhase`).on('value', (snap) => {
             const phase = snap.val();
-            // Critical: Check if questions loaded, if not try fetch
             if (!gameQuestions || gameQuestions.length === 0) {
                 db.ref(`rooms/${roomId}/questions`).once('value', qSnap => {
                     gameQuestions = qSnap.val();
-                    // Retry phase logic
                     if (gameQuestions && gameQuestions.length > 0) handlePhase(phase);
                 });
                 return;
@@ -504,8 +505,8 @@ submitGuessBtn.addEventListener('click', () => {
 function timeIsUp() {
     disableMapInteraction(); questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
     feedbackText.textContent = "Tiden ute!"; feedbackSubtext.textContent = "Hämtar resultat...";
-    if (isGlobalHost || isDryRun) showRoundResult(); // Host shows immediately
-    else setTimeout(showRoundResult, 1000); // Player waits slightly
+    if (isGlobalHost || isDryRun) showRoundResult();
+    else setTimeout(showRoundResult, 1000);
 }
 
 function showRoundResult() {
@@ -518,9 +519,8 @@ function showRoundResult() {
     if (playerGuessMarker) {
         const guessLatLng = playerGuessMarker.getLatLng();
         const distKm = calculateDistance(correctLatLng.lat, correctLatLng.lng, guessLatLng.lat, guessLatLng.lng);
-        distMeter = Math.round(distKm * 1000); // Convert to meters
+        distMeter = Math.round(distKm * 1000);
 
-        // Show line
         answerLine = L.polyline([guessLatLng, correctLatLng], { color: 'red', dashArray: '5, 10' }).addTo(map);
         map.fitBounds(answerLine.getBounds(), { padding: [50, 50] });
 
@@ -528,7 +528,7 @@ function showRoundResult() {
         else distText = `${distMeter} m`;
     } else {
         map.setView([correctLatLng.lat, correctLatLng.lng], 5);
-        distMeter = 20000000; // Max penalty (20,000 km roughly)
+        distMeter = 20000000;
         distText = "Inget gissning (+20 000 km)";
     }
 
@@ -538,12 +538,16 @@ function showRoundResult() {
         feedbackSubtext.textContent = `Totalt fel: ${formatDistance(currentPlayer.score)}`;
         playerScoreDisplay.textContent = `Avstånd: ${formatDistance(currentPlayer.score)}`;
 
+        // Player View: Hide Host Controls
+        hostResultControls.classList.add('hidden');
         if (!isDryRun) db.ref(`rooms/${currentRoomId}/players/${currentPlayer.id}/score`).set(currentPlayer.score);
     } else {
         feedbackText.textContent = "RÄTT SVAR"; feedbackSubtext.textContent = "Visas på kartan";
-    }
 
-    if (isGlobalHost) { gotoLeaderboardBtn.classList.remove('hidden'); nextQuestionBtn.classList.add('hidden'); }
+        // Host View: SHOW Controls
+        hostResultControls.classList.remove('hidden');
+        gotoLeaderboardBtn.classList.remove('hidden');
+    }
 }
 
 function formatDistance(meters) {
@@ -559,7 +563,6 @@ gotoLeaderboardBtn.addEventListener('click', () => {
     } else {
         db.ref(`rooms/${currentRoomId}/players`).once('value', snap => {
             const players = snap.val() || {};
-            // Sort ASCENDING (Lowest distance is best)
             const sorted = Object.values(players).sort((a, b) => a.score - b.score);
             sorted.forEach(p => {
                 const li = document.createElement('li');
@@ -568,24 +571,24 @@ gotoLeaderboardBtn.addEventListener('click', () => {
             });
         });
     }
+});
 
-    // Ensure Host sees Next Button
-    if (isGlobalHost) {
-        nextQuestionBtn.classList.remove('hidden');
+// Shortcut button logic
+directNextBtn.addEventListener('click', () => {
+    currentQIndex++;
+    if (isDryRun) startQuestionPhasePrep();
+    else {
+        db.ref(`rooms/${currentRoomId}`).update({ currentQuestionIndex: currentQIndex, questionPhase: 'prep' });
+        startQuestionPhasePrep();
     }
 });
 
 nextQuestionBtn.addEventListener('click', () => {
     leaderboardOverlay.classList.add('hidden');
     currentQIndex++;
-
-    if (isDryRun) {
-        startQuestionPhasePrep();
-    } else {
-        db.ref(`rooms/${currentRoomId}`).update({
-            currentQuestionIndex: currentQIndex,
-            questionPhase: 'prep'
-        });
+    if (isDryRun) startQuestionPhasePrep();
+    else {
+        db.ref(`rooms/${currentRoomId}`).update({ currentQuestionIndex: currentQIndex, questionPhase: 'prep' });
         startQuestionPhasePrep();
     }
 });
@@ -593,7 +596,9 @@ nextQuestionBtn.addEventListener('click', () => {
 function endGame() {
     feedbackOverlay.classList.remove('hidden'); leaderboardOverlay.classList.add('hidden'); waitOverlay.classList.add('hidden');
     feedbackText.textContent = "SPELET SLUT"; feedbackSubtext.textContent = "";
+    hostResultControls.classList.remove('hidden');
     gotoLeaderboardBtn.textContent = "Avsluta / Starta Om"; gotoLeaderboardBtn.classList.remove('hidden');
+    directNextBtn.classList.add('hidden'); // Hide next, only Finish/Restart
     gotoLeaderboardBtn.onclick = () => window.location.reload();
 }
 function calculateDistance(lat1, lon1, lat2, lon2) {
