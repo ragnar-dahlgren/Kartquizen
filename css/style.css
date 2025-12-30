@@ -449,6 +449,59 @@ input:focus {
     font-weight: bold;
 }
 
+/* Big Timer */
+#big-timer {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #ffeb3b;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    margin: 10px 0;
+    display: block;
+}
+
+/* HOST ACTION BAR (Fixed Bottom) */
+#host-action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(20, 30, 20, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 15px;
+    z-index: 10000;
+    /* ALWAYS ON TOP */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+}
+
+#host-action-bar.hidden {
+    display: none !important;
+}
+
+.host-badge {
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-right: 15px;
+}
+
+#host-action-content {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+#host-action-content button {
+    padding: 12px 25px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
 /* Version Marker */
 #version-tag {
     position: fixed;

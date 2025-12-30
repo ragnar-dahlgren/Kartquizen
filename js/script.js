@@ -470,39 +470,17 @@ function startQuestionPhasePrep() {
     feedbackOverlay.classList.add('hidden'); leaderboardOverlay.classList.add('hidden');
     questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
 
+    // Clear map layers
     if (playerGuessMarker) map.removeLayer(playerGuessMarker);
     if (correctMarker) map.removeLayer(correctMarker);
     if (answerLine) map.removeLayer(answerLine);
     if (tempMarker) map.removeLayer(tempMarker);
-    // Clear live guess markers if any
-    map.eachLayer((layer) => {
-        if (layer instanceof L.CircleMarker) map.removeLayer(layer);
-    });
+    map.eachLayer((layer) => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
 
     waitOverlay.classList.remove('hidden');
-
-    // Default text for everyone
     waitText.textContent = "Snart börjar spelet. Sätt ut nålen så nära målet som möjligt!";
 
-    if (isGlobalHost || isDryRun) {
-        if (isDryRun) { /* No DB set in dry run here, purely local */ }
-        // Note: We DO NOT set 'prep' here for Host, that's done by the trigger (Result/Next).
-        // If we set it here, it loops.
-
-        waitText.textContent = `Fråga ${currentQIndex + 1}/${gameQuestions.length}. Redo?`;
-        hostShowQuestionBtn.classList.remove('hidden');
-        hostShowQuestionBtn.textContent = "Visa Fråga 👁️";
-        hostShowQuestionBtn.onclick = () => {
-            if (!isDryRun) {
-                // STATE DRIVEN: Just update DB, let listener call Phase 1
-                db.ref(`rooms/${currentRoomId}/questionPhase`).set('preview');
-            } else {
-                startQuestionPhase1();
-            }
-        };
-    } else {
-        hostShowQuestionBtn.classList.add('hidden');
-    }
+    updateHostControls('prep');
 }
 
 // --- PHASE 1: PREVIEW (Read) ---
@@ -516,29 +494,14 @@ function startQuestionPhase1() {
     if (question.image) { gameQuestionImage.src = question.image; gameImageContainer.classList.remove('hidden'); gameImageContainer.classList.remove('mini-img'); }
     else { gameImageContainer.classList.add('hidden'); }
 
-    // Reset Timer Display using Big Timer
+    // Reset Timer
     const timerDisplay = document.getElementById('big-timer');
     if (timerDisplay) timerDisplay.textContent = "";
     timerText.textContent = ""; timerFill.style.width = "100%";
 
-    if (isGlobalHost || isDryRun) {
-        hostStartRoundBtn.classList.remove('hidden');
-        hostStartRoundBtn.textContent = "Starta Gissning ▶";
-        hostStartRoundBtn.classList.remove('warn'); hostStartRoundBtn.classList.add('success');
-        hostStartRoundBtn.onclick = () => {
-            if (!isDryRun) {
-                // STATE DRIVEN: Just update DB
-                db.ref(`rooms/${currentRoomId}/questionPhase`).set('action');
-            } else {
-                startQuestionPhase2();
-            }
-        };
-    } else {
-        hostStartRoundBtn.classList.add('hidden');
-    }
+    updateHostControls('preview');
 }
 
-// --- PHASE 2: ACTION (Guess) ---
 // --- PHASE 2: ACTION (Guess) ---
 function startQuestionPhase2() {
     console.log("Phase: ACTION");
@@ -546,45 +509,78 @@ function startQuestionPhase2() {
     questionBox.classList.add('minimized'); if (question.image) gameImageContainer.classList.add('mini-img');
     mapPickerUI.classList.remove('hidden');
 
-    if (isGlobalHost && !isDryRun) {
+    // Player View
+    if (!isGlobalHost) {
+        submitGuessBtn.classList.remove('hidden'); confirmLocationBtn.classList.add('hidden'); pickerInstruction.textContent = "Klicka på kartan nu!"; enableMapInteraction();
+    } else {
         submitGuessBtn.classList.add('hidden'); pickerInstruction.textContent = "Spelarna gissar nu..."; disableMapInteraction();
-
-        // Host: Show "Avsluta Tid" button instead of Start
-        hostStartRoundBtn.classList.remove('hidden');
-        hostStartRoundBtn.textContent = "⏹ Avsluta Tid";
-        hostStartRoundBtn.classList.remove('success'); hostStartRoundBtn.classList.add('warn');
-        hostStartRoundBtn.onclick = () => {
-            // Force End
-            clearInterval(timerInterval);
-            timeIsUp();
-        };
-
-        // LIVE PINS: Listen for guesses
+        // Live Pins
         db.ref(`rooms/${currentRoomId}/guesses`).on('child_added', (snapshot) => {
             const guess = snapshot.val();
-            L.circleMarker([guess.lat, guess.lng], {
-                radius: 8, fillColor: "#ffeb3b", color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8
-            }).addTo(map);
+            L.circleMarker([guess.lat, guess.lng], { radius: 8, fillColor: "#ffeb3b", color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8 }).addTo(map);
         });
-
-    } else {
-        submitGuessBtn.classList.remove('hidden'); confirmLocationBtn.classList.add('hidden'); pickerInstruction.textContent = "Klicka på kartan nu!"; enableMapInteraction();
-        hostStartRoundBtn.classList.add('hidden'); // Ensure hidden for players
     }
 
+    // Timer Logic
     let timeLeft = question.timeLimit || 30;
     const timerDisplay = document.getElementById('big-timer');
     if (timerDisplay) timerDisplay.textContent = timeLeft;
 
     if (timerInterval) clearInterval(timerInterval);
-
     timerInterval = setInterval(() => {
         timeLeft--;
         if (timerDisplay) timerDisplay.textContent = timeLeft;
         if (timerFill) timerFill.style.width = (timeLeft / (question.timeLimit || 30) * 100) + "%";
-
         if (timeLeft <= 0) { clearInterval(timerInterval); timeIsUp(); }
     }, 1000);
+
+    updateHostControls('action');
+}
+
+// --- HOST ACTION BAR LOGIC ---
+function updateHostControls(phase) {
+    const bar = document.getElementById('host-action-bar');
+    const content = document.getElementById('host-action-content');
+
+    if (!isGlobalHost && !isDryRun) {
+        bar.classList.add('hidden');
+        return;
+    }
+
+    // Show Bar for Host
+    bar.classList.remove('hidden');
+    content.innerHTML = ""; // Clear previous buttons
+
+    if (phase === 'prep') {
+        const btn = document.createElement('button');
+        btn.className = "btn success";
+        btn.innerHTML = "Visa Fråga 👁️";
+        btn.onclick = () => {
+            if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('preview');
+            else startQuestionPhase1();
+        };
+        content.appendChild(btn);
+    }
+    else if (phase === 'preview') {
+        const btn = document.createElement('button');
+        btn.className = "btn success";
+        btn.innerHTML = "Starta Gissning ▶";
+        btn.onclick = () => {
+            if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('action');
+            else startQuestionPhase2();
+        };
+        content.appendChild(btn);
+    }
+    else if (phase === 'action') {
+        const btn = document.createElement('button');
+        btn.className = "btn warn";
+        btn.innerHTML = "⏹ Avsluta Tid";
+        btn.onclick = () => {
+            clearInterval(timerInterval);
+            timeIsUp();
+        };
+        content.appendChild(btn);
+    }
 }
 
 submitGuessBtn.addEventListener('click', () => {
@@ -679,7 +675,20 @@ function showRoundResult() {
     }
 
     if (isGlobalHost) {
-        hostResultControls.classList.remove('hidden'); // Show "Visa Highscore"
+        // hostResultControls.classList.remove('hidden'); // OLD OVERLAY CONTROLS
+        const bar = document.getElementById('host-action-bar');
+        const content = document.getElementById('host-action-content');
+        bar.classList.remove('hidden');
+        content.innerHTML = "";
+
+        const btn = document.createElement('button');
+        btn.className = "btn success";
+        btn.innerHTML = "Visa Highscore →";
+        btn.onclick = () => {
+            gotoLeaderboardBtn.click(); // Reuse logic
+        };
+        content.appendChild(btn);
+
     } else {
         hostResultControls.classList.add('hidden');
     }
@@ -691,10 +700,26 @@ function formatDistance(meters) {
 }
 
 // Ensure this button only goes to Highscore
-gotoLeaderboardBtn.onclick = () => {
+gotoLeaderboardBtn.onclick = () => { // Or the function that handles this
     feedbackOverlay.classList.add('hidden');
     leaderboardOverlay.classList.remove('hidden');
     liveLeaderboardList.innerHTML = "Laddar...";
+
+    // SETUP HOST CONTROLS FOR LEADERBOARD
+    if (isGlobalHost) {
+        const bar = document.getElementById('host-action-bar');
+        const content = document.getElementById('host-action-content');
+        bar.classList.remove('hidden');
+        content.innerHTML = "";
+
+        const btn = document.createElement('button');
+        btn.className = "btn primary";
+        btn.innerHTML = "Nästa Fråga →";
+        btn.onclick = () => {
+            nextQuestionBtn.click();
+        };
+        content.appendChild(btn);
+    }
 
     if (isDryRun) {
         liveLeaderboardList.innerHTML = `<li><strong>Jag</strong>: ${formatDistance(currentPlayer.score)}</li>`;
