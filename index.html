@@ -199,9 +199,15 @@
                 <h1 id="feedback-text">RÄTT!</h1>
                 <p id="feedback-subtext">+500 poäng</p>
 
+                <!-- Round Summary List (New) -->
+                <div id="round-summary-container" class="hidden"
+                    style="margin: 15px 0; max-height: 150px; overflow-y: auto; text-align: left; width: 100%;">
+                    <ul id="round-results-list" style="list-style: none; padding: 0;"></ul>
+                </div>
+
                 <div id="host-result-controls" class="result-controls hidden">
-                    <button id="goto-leaderboard-btn" class="btn secondary">🏆 Poäng</button>
-                    <button id="direct-next-btn" class="btn primary">Nästa Fråga →</button>
+                    <button id="goto-leaderboard-btn" class="btn success full-width">Visa Highscore →</button>
+                    <!-- Removed Direct Next to enforce flow: Result -> Highscore -> Next -->
                 </div>
             </div>
 
@@ -249,11 +255,11 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic (v24 + check) -->
-    <script src="js/script.js?v=24"></script>
+    <!-- App Logic (v25 + check) -->
+    <script src="js/script.js?v=25"></script>
     <script>
         // Check for new UI element
-        if(!document.getElementById('version-tag')) {
+        if (!document.getElementById('version-tag')) {
             window.location.reload(true);
         }
     </script>
