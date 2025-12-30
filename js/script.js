@@ -376,7 +376,8 @@ function enterLobby(roomId, isHost) {
                 db.ref(`rooms/${roomId}/questions`).once('value', qSnap => {
                     gameQuestions = qSnap.val();
                     lobbyScreen.classList.add('hidden'); gameScreen.classList.remove('hidden'); initMap(false);
-                    playerScoreDisplay.textContent = "Snart börjar spelet. Sätt ut nålen så nära målet som möjligt!";
+                    // Fix: Put long text in the CENTER wait overlay, not the score box (which overlaps)
+                    // player-score is reset in startGameFlow anyway
                 });
             }
         });
@@ -417,7 +418,7 @@ lobbyStartBtn.addEventListener('click', () => {
 function startGameFlow() {
     lobbyScreen.classList.add('hidden'); gameScreen.classList.remove('hidden'); testControls.classList.add('hidden'); initMap(false);
     currentQIndex = 0;
-    playerScoreDisplay.textContent = "Distans: 0 km";
+    playerScoreDisplay.textContent = "Poäng: 0";
     startQuestionPhasePrep();
 }
 
@@ -436,17 +437,20 @@ function startQuestionPhasePrep() {
 
     waitOverlay.classList.remove('hidden');
 
+    // Default text for everyone
+    waitText.textContent = "Snart börjar spelet. Sätt ut nålen så nära målet som möjligt!";
+
     if (isGlobalHost || isDryRun) {
         if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('prep');
 
-        waitText.textContent = `Fråga ${currentQIndex + 1}/${gameQuestions.length}`;
+        waitText.textContent = `Fråga ${currentQIndex + 1}/${gameQuestions.length}.Redo?`;
         hostShowQuestionBtn.classList.remove('hidden');
+        hostShowQuestionBtn.textContent = "Visa Fråga 👁️";
         hostShowQuestionBtn.onclick = () => {
             if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('preview');
             startQuestionPhase1();
         };
     } else {
-        waitText.textContent = "Lekledaren laddar frågan...";
         hostShowQuestionBtn.classList.add('hidden');
     }
 }
@@ -465,6 +469,8 @@ function startQuestionPhase1() {
 
     if (isGlobalHost || isDryRun) {
         hostStartRoundBtn.classList.remove('hidden');
+        hostStartRoundBtn.textContent = "Starta Gissning ▶";
+        hostStartRoundBtn.classList.remove('warn'); hostStartRoundBtn.classList.add('success');
         hostStartRoundBtn.onclick = () => {
             if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('action');
             startQuestionPhase2();
@@ -477,12 +483,20 @@ function startQuestionPhase1() {
 // --- PHASE 2: ACTION (Guess) ---
 function startQuestionPhase2() {
     const question = gameQuestions[currentQIndex];
-    hostStartRoundBtn.classList.add('hidden');
     questionBox.classList.add('minimized'); if (question.image) gameImageContainer.classList.add('mini-img');
     mapPickerUI.classList.remove('hidden');
 
     if (isGlobalHost && !isDryRun) {
         submitGuessBtn.classList.add('hidden'); pickerInstruction.textContent = "Spelarna gissar nu..."; disableMapInteraction();
+
+        // Host: Show "Avsluta Tid" button instead of Start
+        hostStartRoundBtn.classList.remove('hidden');
+        hostStartRoundBtn.textContent = "⏹ Avsluta Tid";
+        hostStartRoundBtn.classList.remove('success'); hostStartRoundBtn.classList.add('warn');
+        hostStartRoundBtn.onclick = () => {
+            clearInterval(timerInterval);
+            timeIsUp();
+        };
 
         // LIVE PINS: Listen for guesses
         db.ref(`rooms/${currentRoomId}/guesses`).on('child_added', (snapshot) => {

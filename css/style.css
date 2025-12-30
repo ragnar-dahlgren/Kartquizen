@@ -336,7 +336,8 @@ input:focus {
 }
 
 .overlay-top {
-    top: 20px;
+    top: 60px;
+    /* Moves down so it doesn't hit Score (Top Left/Right) */
     left: 50%;
     transform: translateX(-50%);
     width: 90%;
