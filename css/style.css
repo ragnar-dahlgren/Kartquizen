@@ -59,13 +59,12 @@ body {
 
 /* Glass Panels */
 .glass-panel {
-    background: rgba(20, 20, 20, 0.95);
-    /* Deep dark background */
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-radius: 20px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     padding: 3rem;
     text-align: center;
     width: 90%;
@@ -73,17 +72,22 @@ body {
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
-    color: white;
-    /* Ensure text is white */
 }
 
-.glass-panel h2 {
+/* Specific High Contrast for Leaderboard */
+#leaderboard-overlay {
+    background: rgba(20, 20, 20, 0.95);
+    /* Deep dark background */
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+#leaderboard-overlay h2 {
     color: #ffeb3b;
-    /* Gold Header */
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-.glass-panel li {
+#leaderboard-overlay li {
     font-size: 1.2rem;
     font-weight: 500;
     margin-bottom: 5px;
