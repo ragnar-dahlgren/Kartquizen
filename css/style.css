@@ -59,12 +59,13 @@ body {
 
 /* Glass Panels */
 .glass-panel {
-    background: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(20, 20, 20, 0.95);
+    /* Deep dark background */
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     padding: 3rem;
     text-align: center;
     width: 90%;
@@ -72,6 +73,22 @@ body {
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
+    color: white;
+    /* Ensure text is white */
+}
+
+.glass-panel h2 {
+    color: #ffeb3b;
+    /* Gold Header */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.glass-panel li {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 5px;
 }
 
 .wide-panel {

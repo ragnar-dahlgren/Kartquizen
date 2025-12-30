@@ -706,36 +706,85 @@ gotoLeaderboardBtn.onclick = () => { // Or the function that handles this
     liveLeaderboardList.innerHTML = "Laddar...";
 
     // SETUP HOST CONTROLS FOR LEADERBOARD
-    if (isGlobalHost) {
-        const bar = document.getElementById('host-action-bar');
-        const content = document.getElementById('host-action-content');
-        bar.classList.remove('hidden');
-        content.innerHTML = "";
+    // Final Question Finished -> End Game
+    if (currentQIndex >= gameQuestions.length - 1) {
+        if (isGlobalHost) {
+            const bar = document.getElementById('host-action-bar');
+            const content = document.getElementById('host-action-content');
+            bar.classList.remove('hidden');
+            content.innerHTML = "";
 
-        const btn = document.createElement('button');
-        btn.className = "btn primary";
-        btn.innerHTML = "Nästa Fråga →";
-        btn.onclick = () => {
-            nextQuestionBtn.click();
-        };
-        content.appendChild(btn);
+            const btn = document.createElement('button');
+            btn.className = "btn success";
+            btn.innerHTML = "🏁 Avsluta Spelet (Till Redigering)";
+            btn.onclick = () => {
+                // Reset Room Status to 'closed' or just leave
+                db.ref(`rooms/${currentRoomId}/status`).set('finished');
+                returnToHostScreen();
+            };
+            content.appendChild(btn);
+        }
+    } else {
+        // Normal Next Question
+        if (isGlobalHost) {
+            const bar = document.getElementById('host-action-bar');
+            const content = document.getElementById('host-action-content');
+            bar.classList.remove('hidden');
+            content.innerHTML = "";
+
+            const btn = document.createElement('button');
+            btn.className = "btn primary";
+            btn.innerHTML = "Nästa Fråga →";
+            btn.onclick = () => {
+                nextQuestionBtn.click();
+            };
+            content.appendChild(btn);
+        }
     }
 
     if (isDryRun) {
         liveLeaderboardList.innerHTML = `<li><strong>Jag</strong>: ${formatDistance(currentPlayer.score)}</li>`;
     } else {
-        db.ref(`rooms/${currentRoomId}/players`).once('value', snap => {
-            const players = snap.val() || {};
-            const sorted = Object.values(players).sort((a, b) => a.score - b.score);
+        db.ref(`rooms/${currentRoomId}/players`).orderByChild('score').once('value', (snap) => {
+            const players = [];
+            snap.forEach(c => players.push(c.val()));
+            // Sort Descending Score (High is good? Or low distance? Logic says Score is points)
+            // Current logic adds points based on closeness. So High Score is winner.
+            players.sort((a, b) => b.score - a.score);
+
             liveLeaderboardList.innerHTML = "";
-            sorted.forEach(p => {
+            let rank = 1;
+            players.forEach(p => {
                 const li = document.createElement('li');
-                li.innerHTML = `<strong>${p.name}</strong>: ${formatDistance(p.score)}`;
+                li.innerHTML = `<strong>#${rank} ${p.name}</strong>: ${p.score} p`;
+                if (rank === 1) li.style.color = "#ffd700"; // Gold
                 liveLeaderboardList.appendChild(li);
+                rank++;
             });
         });
     }
 };
+
+// ABORT BUTTON LOGIC
+document.getElementById('host-abort-btn').addEventListener('click', () => {
+    if (confirm("Vill du verkligen avbryta spelet och gå tillbaka till redigering? Alla spelare kommer kastas ut.")) {
+        db.ref(`rooms/${currentRoomId}`).remove(); // Delete room or set status finished
+        localStorage.removeItem('kartquizen_host_room');
+        returnToHostScreen();
+    }
+});
+
+function returnToHostScreen() {
+    isGlobalHost = false;
+    currentRoomId = null;
+    gameScreen.classList.add('hidden');
+    lobbyScreen.classList.add('hidden');
+    hostScreen.classList.remove('hidden'); // Back to Editor
+
+    // Clean up map
+    if (map) map.remove(); map = null;
+    location.reload(); // Easiest way to reset all state is a clean reload
+}
 
 // "Nästa Fråga" is NOW ONLY ON LEADERBOARD
 nextQuestionBtn.addEventListener('click', () => {

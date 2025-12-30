@@ -225,13 +225,7 @@
                 </div>
             </div>
 
-            <!-- Score Overlay -->
-            <div class="game-ui overlay-right">
-                <div class="glass-panel-mini">
-                    <span id="player-score">Poäng: 0</span>
-                    <span id="round-info">Runda: -/-</span>
-                </div>
-            </div>
+            <!-- Score Overlay REMOVED -->
 
             <!-- Interaction Overlay -->
             <div id="map-picker-ui" class="overlay-bottom hidden">
@@ -246,7 +240,12 @@
 
             <!-- HOST ACTION BAR (New Fixed Control) -->
             <div id="host-action-bar" class="hidden">
-                <div class="host-badge">👑 Lekledare</div>
+                <div style="display:flex; align-items:center;">
+                    <div class="host-badge">👑 Lekledare</div>
+                    <button id="host-abort-btn" class="btn secondary small"
+                        style="margin-left:10px; padding: 5px 10px; background: rgba(255,50,50,0.3);">Avbryt
+                        Spel</button>
+                </div>
                 <div id="host-action-content">
                     <!-- Dynamic Buttons injected here -->
                 </div>
@@ -265,8 +264,8 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic (v32) -->
-    <script src="js/script.js?v=32"></script>
+    <!-- App Logic (v33) -->
+    <script src="js/script.js?v=33"></script>
 </body>
 
 </html>
