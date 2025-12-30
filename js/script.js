@@ -133,6 +133,29 @@ connectedRef.on("value", (snap) => {
         statusMessage.textContent = "Ansluten till server ✓";
         statusMessage.classList.add('status-connected');
         joinRoomBtn.disabled = false;
+
+        // CHECK PERSISTENCE (Fix for Host Reload)
+        const savedHostRoom = localStorage.getItem('kartquizen_host_room');
+        if (savedHostRoom) {
+            console.log("Restoring Host Session for Room: " + savedHostRoom);
+            // Verify if room still exists/is active
+            db.ref(`rooms/${savedHostRoom}`).once('value', snap => {
+                if (snap.exists()) {
+                    isGlobalHost = true;
+                    currentRoomId = savedHostRoom;
+                    enterLobby(savedHostRoom, true);
+                    // If game already started, jump to game screen
+                    if (snap.val().status === 'game_active') {
+                        // Restore game state
+                        gameQuestions = snap.val().questions || [];
+                        currentQIndex = snap.val().currentQuestionIndex || 0;
+                        startGameFlow(true); // true = restoring
+                    }
+                } else {
+                    localStorage.removeItem('kartquizen_host_room');
+                }
+            });
+        }
     } else {
         statusMessage.textContent = "Ansluter...";
     }
@@ -350,7 +373,12 @@ startQuizBtn.addEventListener('click', () => {
         host: name, status: 'lobby', questions: gameQuestions,
         currentQuestionIndex: 0, questionPhase: 'idle', players: {}
     };
-    db.ref('rooms/' + roomId).set(roomData).then(() => { isGlobalHost = true; isDryRun = false; enterLobby(roomId, true); });
+    db.ref('rooms/' + roomId).set(roomData).then(() => {
+        isGlobalHost = true;
+        isDryRun = false;
+        localStorage.setItem('kartquizen_host_room', roomId); // SAVE SESSION
+        enterLobby(roomId, true);
+    });
 });
 
 function enterLobby(roomId, isHost) {

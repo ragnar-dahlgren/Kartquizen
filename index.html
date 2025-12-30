@@ -186,7 +186,9 @@
                     <div class="timer-bar">
                         <div id="timer-fill"></div>
                     </div>
-                    <div id="timer-text">30</div>
+                    <div id="big-timer"></div>
+                    <!-- Old small timer removed from UI, kept in DOM for logic safety if needed or hidden -->
+                    <div id="timer-text" class="hidden">30</div>
 
                     <!-- Host Manual Start Button -->
                     <button id="host-start-round-btn" class="btn success full-width hidden"
@@ -255,8 +257,8 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic (v27) -->
-    <script src="js/script.js?v=27"></script>
+    <!-- App Logic (v28) -->
+    <script src="js/script.js?v=28"></script>
 </body>
 
 </html>
