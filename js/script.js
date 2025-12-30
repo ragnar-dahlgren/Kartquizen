@@ -19,6 +19,14 @@ console.log("Firebase initialized - VERSION 23 LOADED (Light Map & Host Shortcut
 
 // --- Global State ---
 let currentPlayer = { id: null, name: null, score: 0 };
+
+// Version Tag (Immediate)
+const vParams = document.createElement('div');
+vParams.id = "version-tag";
+vParams.style.cssText = "position:fixed; bottom:5px; left:5px; color:rgba(255,255,255,0.3); font-size:10px; z-index:9999; pointer-events:none;";
+vParams.textContent = "v26 (Connected)";
+document.body.appendChild(vParams);
+
 let currentRoomId = null;
 let currentQuizId = null;
 let map = null;
