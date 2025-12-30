@@ -129,25 +129,19 @@ function initMap(interactive = false) {
             center: [20, 0],
             zoom: 2,
             minZoom: 2,
-            maxBounds: [[-90, -180], [90, 180]]
+            maxBounds: [[-90, -180], [90, 180]],
+            zoomControl: false // Cleaner look, usually users pinch/scroll
         });
-        map.setView([20, 0], 2);
 
-        fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
-            .then(res => res.json())
-            .then(data => {
-                L.geoJSON(data, {
-                    style: function () {
-                        return {
-                            fillColor: '#E73C7E',
-                            weight: 1,
-                            opacity: 1,
-                            color: '#23A6D5',
-                            fillOpacity: 0.8
-                        };
-                    }
-                }).addTo(map);
-            });
+        // SWITCH TO TILE MAP (CartoDB Dark Matter No Labels)
+        // detailed map with no text, shows lakes/borders/etc.
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        map.setView([20, 0], 2);
     }
 
     map.off('click');
