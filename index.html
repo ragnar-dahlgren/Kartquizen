@@ -49,6 +49,11 @@
 
             <!-- Discreet Host Button -->
             <button id="host-mode-btn" class="btn text-only corner-btn" title="Skapa eget quiz">⚙️ Lekledare</button>
+
+            <div
+                style="position: absolute; bottom: 5px; width: 100%; text-align: center; font-size: 0.6rem; opacity: 0.5;">
+                utvecklad av ragnar.dahlgren@gmail.com
+            </div>
         </div>
 
         <!-- Host Quiz Creator Screen (2-Column Layout) -->
@@ -149,7 +154,10 @@
 
             <div class="lobby-actions">
                 <p id="lobby-status-text" class="status-indicator">Väntar på spelare...</p>
-                <button id="lobby-start-btn" class="btn success full-width hidden">Starta Spelet</button>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                    <button id="lobby-back-btn" class="btn secondary">← Avbryt</button>
+                    <button id="lobby-start-btn" class="btn success hidden" style="flex: 1;">Starta Spelet</button>
+                </div>
             </div>
         </div>
 
@@ -264,8 +272,8 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- App Logic (v33) -->
-    <script src="js/script.js?v=33"></script>
+    <!-- App Logic (v34) -->
+    <script src="js/script.js?v=34"></script>
 </body>
 
 </html>

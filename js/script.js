@@ -774,6 +774,20 @@ document.getElementById('host-abort-btn').addEventListener('click', () => {
     }
 });
 
+// LOBBY BACK BUTTON
+document.getElementById('lobby-back-btn').addEventListener('click', () => {
+    if (isGlobalHost) {
+        if (confirm("Vill du stänga lobbyn?")) {
+            if (currentRoomId) db.ref(`rooms/${currentRoomId}`).remove();
+            localStorage.removeItem('kartquizen_host_room');
+            returnToHostScreen();
+        }
+    } else {
+        // Player
+        location.reload();
+    }
+});
+
 function returnToHostScreen() {
     isGlobalHost = false;
     currentRoomId = null;
