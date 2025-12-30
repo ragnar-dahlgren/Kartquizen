@@ -44,23 +44,18 @@ body {
     position: relative;
 }
 
-/* Status Text - High Contrast Fix */
+/* Status Text - Subtle / Less Prominent */
 .status-msg {
     margin-top: 15px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    /* Bolder */
+    font-size: 0.8rem;
+    font-weight: 400;
+    opacity: 0.8;
 }
 
 .status-connected {
-    color: #000000;
-    /* Black Text */
-    text-shadow:
-        -1px -1px 0 #ffffff,
-        1px -1px 0 #ffffff,
-        -1px 1px 0 #ffffff,
-        1px 1px 0 #ffffff;
-    /* Solid White Outline */
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: none;
+    /* Removed heavy shadow per request */
 }
 
 /* Glass Panels */
@@ -151,7 +146,7 @@ h3 {
     gap: 10px;
 }
 
-/* Inputs */
+/* Inputs - Clearer Text */
 .input-group {
     margin-bottom: 1rem;
     display: flex;
@@ -163,7 +158,7 @@ label {
     font-size: 0.9rem;
     font-weight: 600;
     margin-left: 5px;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.95);
 }
 
 .small-input {
@@ -183,9 +178,23 @@ input[type="number"] {
     padding: 12px 15px;
     border-radius: 12px;
     border: none;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    background: rgba(255, 255, 255, 0.25);
+    /* More visible background */
+    color: #ffffff;
+    /* pure white text */
+    font-weight: 500;
     outline: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+input::placeholder {
+    color: rgba(255, 255, 255, 0.8);
+    /* Stronger placeholder */
+}
+
+input:focus {
+    background: rgba(255, 255, 255, 0.35);
+    border-color: rgba(255, 255, 255, 0.7);
 }
 
 /* Buttons */
