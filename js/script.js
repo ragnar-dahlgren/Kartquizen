@@ -397,38 +397,41 @@ function enterLobby(roomId, isHost) {
     } else {
         lobbyStartBtn.classList.add('hidden'); lobbyStatusText.textContent = "Väntar på att Lekledaren ska starta spelet...";
 
-        // --- PLAYER SYNC ---
+        // --- PLAYER START SYNC ---
+        // Only players need to auto-start when status becomes game_active
         db.ref(`rooms/${roomId}/status`).on('value', (snap) => {
             if (snap.val() === 'game_active') {
                 // Load questions immediately
                 db.ref(`rooms/${roomId}/questions`).once('value', qSnap => {
                     gameQuestions = qSnap.val();
                     lobbyScreen.classList.add('hidden'); gameScreen.classList.remove('hidden'); initMap(false);
-                    // Fix: Put long text in the CENTER wait overlay, not the score box (which overlaps)
-                    // player-score is reset in startGameFlow anyway
                 });
             }
-        });
-
-        db.ref(`rooms/${roomId}/currentQuestionIndex`).on('value', (snap) => {
-            const newIndex = snap.val();
-            if (newIndex !== null && newIndex !== undefined) {
-                currentQIndex = newIndex;
-            }
-        });
-
-        db.ref(`rooms/${roomId}/questionPhase`).on('value', (snap) => {
-            const phase = snap.val();
-            if (!gameQuestions || gameQuestions.length === 0) {
-                db.ref(`rooms/${roomId}/questions`).once('value', qSnap => {
-                    gameQuestions = qSnap.val();
-                    if (gameQuestions && gameQuestions.length > 0) handlePhase(phase);
-                });
-                return;
-            }
-            handlePhase(phase);
         });
     }
+
+    // --- GLOBAL SYNC (EVERYONE) ---
+    // Moved OUT of else block so Host gets these too!
+    db.ref(`rooms/${roomId}/currentQuestionIndex`).on('value', (snap) => {
+        const newIndex = snap.val();
+        if (newIndex !== null && newIndex !== undefined) {
+            currentQIndex = newIndex;
+        }
+    });
+
+    db.ref(`rooms/${roomId}/questionPhase`).on('value', (snap) => {
+        const phase = snap.val();
+        // Host has questions loaded locally usually, but on restore might need fetch check
+        // Players usually load via status check above, but double safety:
+        if (!gameQuestions || gameQuestions.length === 0) {
+            db.ref(`rooms/${roomId}/questions`).once('value', qSnap => {
+                gameQuestions = qSnap.val();
+                if (gameQuestions && gameQuestions.length > 0) handlePhase(phase);
+            });
+            return;
+        }
+        handlePhase(phase);
+    });
 }
 
 function handlePhase(phase) {
@@ -454,13 +457,13 @@ function startGameFlow(restoring = false) {
         playerScoreDisplay.textContent = "Poäng: 0";
         startQuestionPhasePrep();
     } else {
-        // If restoring, just listen to phase changes, don't force prep
-        console.log("Game restored.");
+        console.log("Game restored - waiting for phase listener.");
     }
 }
 
 // --- PHASE 0: PREP (Wait) ---
 function startQuestionPhasePrep() {
+    console.log("Phase: PREP");
     if (currentQIndex >= gameQuestions.length) { endGame(); return; }
     if (map) map.setView([20, 0], 2); // Force Zoom Out
 
@@ -482,14 +485,20 @@ function startQuestionPhasePrep() {
     waitText.textContent = "Snart börjar spelet. Sätt ut nålen så nära målet som möjligt!";
 
     if (isGlobalHost || isDryRun) {
-        if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('prep');
+        if (isDryRun) { /* No DB set in dry run here, purely local */ }
+        // Note: We DO NOT set 'prep' here for Host, that's done by the trigger (Result/Next).
+        // If we set it here, it loops.
 
         waitText.textContent = `Fråga ${currentQIndex + 1}/${gameQuestions.length}. Redo?`;
         hostShowQuestionBtn.classList.remove('hidden');
         hostShowQuestionBtn.textContent = "Visa Fråga 👁️";
         hostShowQuestionBtn.onclick = () => {
-            if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('preview');
-            startQuestionPhase1();
+            if (!isDryRun) {
+                // STATE DRIVEN: Just update DB, let listener call Phase 1
+                db.ref(`rooms/${currentRoomId}/questionPhase`).set('preview');
+            } else {
+                startQuestionPhase1();
+            }
         };
     } else {
         hostShowQuestionBtn.classList.add('hidden');
@@ -498,6 +507,7 @@ function startQuestionPhasePrep() {
 
 // --- PHASE 1: PREVIEW (Read) ---
 function startQuestionPhase1() {
+    console.log("Phase: PREVIEW");
     waitOverlay.classList.add('hidden');
     questionOverlay.classList.remove('hidden'); questionBox.classList.remove('minimized');
 
@@ -516,8 +526,12 @@ function startQuestionPhase1() {
         hostStartRoundBtn.textContent = "Starta Gissning ▶";
         hostStartRoundBtn.classList.remove('warn'); hostStartRoundBtn.classList.add('success');
         hostStartRoundBtn.onclick = () => {
-            if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('action');
-            startQuestionPhase2();
+            if (!isDryRun) {
+                // STATE DRIVEN: Just update DB
+                db.ref(`rooms/${currentRoomId}/questionPhase`).set('action');
+            } else {
+                startQuestionPhase2();
+            }
         };
     } else {
         hostStartRoundBtn.classList.add('hidden');
@@ -527,6 +541,7 @@ function startQuestionPhase1() {
 // --- PHASE 2: ACTION (Guess) ---
 // --- PHASE 2: ACTION (Guess) ---
 function startQuestionPhase2() {
+    console.log("Phase: ACTION");
     const question = gameQuestions[currentQIndex];
     questionBox.classList.add('minimized'); if (question.image) gameImageContainer.classList.add('mini-img');
     mapPickerUI.classList.remove('hidden');
@@ -539,6 +554,7 @@ function startQuestionPhase2() {
         hostStartRoundBtn.textContent = "⏹ Avsluta Tid";
         hostStartRoundBtn.classList.remove('success'); hostStartRoundBtn.classList.add('warn');
         hostStartRoundBtn.onclick = () => {
+            // Force End
             clearInterval(timerInterval);
             timeIsUp();
         };
