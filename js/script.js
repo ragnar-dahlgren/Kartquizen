@@ -229,27 +229,34 @@ loadQuizBtn.addEventListener('click', () => {
 // --- Host Form Utils & Plus Codes ---
 
 convertPlusBtn.addEventListener('click', () => {
-    const code = qPlusCode.value.trim();
-    if (code.length < 8) {
-        alert("Ogiltig Plus Code. Måste vara minst 8 tecken (t.ex 9C3XGV00+).");
+    let input = qPlusCode.value.trim();
+
+    // Regex to extract Plus Code (e.g. "9C3XGV00+" or "MXG7+R6")
+    // Looks for 4+ alphanumeric chars, a plus sign, and 2+ alphanumeric chars.
+    const match = input.match(/([a-zA-Z0-9]{4,}\+[a-zA-Z0-9]{2,})/);
+
+    let codeToUse = input;
+    if (match) {
+        codeToUse = match[0]; // Use the extracted code
+    }
+
+    if (codeToUse.length < 5 || !codeToUse.includes('+')) {
+        alert("Kunde inte hitta en giltig Plus Code. (Försök klistra in exakt 'MXG7+R6')");
         return;
     }
 
     try {
-        let fullCode = code;
-        if (!code.includes('+')) fullCode += '+';
-
-        const codeArea = OpenLocationCode.decode(fullCode);
+        const codeArea = OpenLocationCode.decode(codeToUse);
         const lat = codeArea.latitudeCenter;
         const lng = codeArea.longitudeCenter;
 
         qLat.value = lat.toFixed(6);
         qLng.value = lng.toFixed(6);
         selectedLocation = { lat: lat, lng: lng };
-        alert(`Plats hittad!\nLat: ${lat.toFixed(4)}\nLng: ${lng.toFixed(4)}`);
+        alert(`Plats hittad för kod: ${codeToUse}\nLat: ${lat.toFixed(4)}\nLng: ${lng.toFixed(4)}`);
 
     } catch (e) {
-        alert("Kunde inte tyda Plus Code. Kontrollera formatet (ex. 8Q7X2222+22).");
+        alert("Kunde inte tolka koden. Prova att söka upp platsen manuellt.");
         console.error(e);
     }
 });
@@ -451,7 +458,7 @@ function startQuestionPhase1() {
     if (question.image) { gameQuestionImage.src = question.image; gameImageContainer.classList.remove('hidden'); gameImageContainer.classList.remove('mini-img'); }
     else { gameImageContainer.classList.add('hidden'); }
 
-    timerText.textContent = "Läs frågan..."; timerFill.style.width = "100%";
+    timerText.textContent = ""; timerFill.style.width = "100%";
 
     if (isGlobalHost || isDryRun) {
         hostStartRoundBtn.classList.remove('hidden');

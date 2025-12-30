@@ -416,21 +416,27 @@ input:focus {
     top: auto;
     left: 50%;
     transform: translateX(-50%);
-    width: 90%;
+    width: 95%;
+    /* Slightly wider on mobile */
     max-width: 600px;
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.85);
+    padding: 15px;
+    /* More padding */
+    background: rgba(0, 0, 0, 0.9);
+    text-align: center;
+    /* Force center */
 }
 
 .question-box.minimized h3 {
     font-size: 1rem;
     margin: 0;
-    display: inline-block;
+    display: block;
+    /* Stack on mobile if needed */
+    width: 100%;
 }
 
 .question-box.minimized #timer-text {
-    display: inline-block;
-    margin-left: 10px;
+    display: block;
+    margin-top: 5px;
     font-weight: bold;
     color: #ffeb3b;
 }
