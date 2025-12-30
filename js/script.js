@@ -443,17 +443,26 @@ lobbyStartBtn.addEventListener('click', () => {
     startGameFlow();
 });
 
-function startGameFlow() {
+function startGameFlow(restoring = false) {
     lobbyScreen.classList.add('hidden'); gameScreen.classList.remove('hidden'); testControls.classList.add('hidden'); initMap(false);
-    currentQIndex = 0;
-    playerScoreDisplay.textContent = "Poäng: 0";
-    startQuestionPhasePrep();
+
+    // FORCE ZOOM OUT FOR PLAYERS
+    if (map) map.setView([20, 0], 2);
+
+    if (!restoring) {
+        currentQIndex = 0;
+        playerScoreDisplay.textContent = "Poäng: 0";
+        startQuestionPhasePrep();
+    } else {
+        // If restoring, just listen to phase changes, don't force prep
+        console.log("Game restored.");
+    }
 }
 
 // --- PHASE 0: PREP (Wait) ---
 function startQuestionPhasePrep() {
     if (currentQIndex >= gameQuestions.length) { endGame(); return; }
-    if (map) map.setView([20, 0], 2);
+    if (map) map.setView([20, 0], 2); // Force Zoom Out
 
     feedbackOverlay.classList.add('hidden'); leaderboardOverlay.classList.add('hidden');
     questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
@@ -462,6 +471,10 @@ function startQuestionPhasePrep() {
     if (correctMarker) map.removeLayer(correctMarker);
     if (answerLine) map.removeLayer(answerLine);
     if (tempMarker) map.removeLayer(tempMarker);
+    // Clear live guess markers if any
+    map.eachLayer((layer) => {
+        if (layer instanceof L.CircleMarker) map.removeLayer(layer);
+    });
 
     waitOverlay.classList.remove('hidden');
 
@@ -471,7 +484,7 @@ function startQuestionPhasePrep() {
     if (isGlobalHost || isDryRun) {
         if (!isDryRun) db.ref(`rooms/${currentRoomId}/questionPhase`).set('prep');
 
-        waitText.textContent = `Fråga ${currentQIndex + 1}/${gameQuestions.length}.Redo?`;
+        waitText.textContent = `Fråga ${currentQIndex + 1}/${gameQuestions.length}. Redo?`;
         hostShowQuestionBtn.classList.remove('hidden');
         hostShowQuestionBtn.textContent = "Visa Fråga 👁️";
         hostShowQuestionBtn.onclick = () => {
@@ -493,6 +506,9 @@ function startQuestionPhase1() {
     if (question.image) { gameQuestionImage.src = question.image; gameImageContainer.classList.remove('hidden'); gameImageContainer.classList.remove('mini-img'); }
     else { gameImageContainer.classList.add('hidden'); }
 
+    // Reset Timer Display using Big Timer
+    const timerDisplay = document.getElementById('big-timer');
+    if (timerDisplay) timerDisplay.textContent = "";
     timerText.textContent = ""; timerFill.style.width = "100%";
 
     if (isGlobalHost || isDryRun) {
@@ -528,178 +544,188 @@ function startQuestionPhase2() {
 
         // LIVE PINS: Listen for guesses
         db.ref(`rooms/${currentRoomId}/guesses`).on('child_added', (snapshot) => {
-            const guess = snapshot.val();
-            // Show simple marker for each guess
-            L.circleMarker([guess.lat, guess.lng], {
-                radius: 8, fillColor: "#ffeb3b", color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8
-            }).addTo(map);
-        });
+            hostStartRoundBtn.classList.remove('hidden');
+            hostStartRoundBtn.textContent = "⏹ Avsluta Tid";
+            hostStartRoundBtn.classList.remove('success'); hostStartRoundBtn.classList.add('warn');
+            hostStartRoundBtn.onclick = () => {
+                clearInterval(timerInterval);
+                timeIsUp();
+            };
 
-    } else {
-        submitGuessBtn.classList.remove('hidden'); confirmLocationBtn.classList.add('hidden'); pickerInstruction.textContent = "Klicka på kartan nu!"; enableMapInteraction();
-    }
+            // LIVE PINS: Listen for guesses
+            db.ref(`rooms/${currentRoomId}/guesses`).on('child_added', (snapshot) => {
+                const guess = snapshot.val();
+                // Show simple marker for each guess
+                L.circleMarker([guess.lat, guess.lng], {
+                    radius: 8, fillColor: "#ffeb3b", color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8
+                }).addTo(map);
+            });
+
+        } else {
+            submitGuessBtn.classList.remove('hidden'); confirmLocationBtn.classList.add('hidden'); pickerInstruction.textContent = "Klicka på kartan nu!"; enableMapInteraction();
+        }
 
     let timeLeft = question.timeLimit || 30;
-    timerText.textContent = timeLeft;
-    if (timerInterval) clearInterval(timerInterval);
-    const totalTime = timeLeft;
-    timerInterval = setInterval(() => {
-        timeLeft--; timerText.textContent = timeLeft; timerFill.style.width = (timeLeft / totalTime * 100) + "%";
-        if (timeLeft <= 0) { clearInterval(timerInterval); timeIsUp(); }
-    }, 1000);
-}
-
-submitGuessBtn.addEventListener('click', () => {
-    if (!tempMarker) { alert("Välj plats!"); return; }
-    playerGuessMarker = tempMarker; tempMarker = null; disableMapInteraction();
-    questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
-    feedbackOverlay.classList.remove('hidden'); feedbackText.textContent = "Registrerat!"; feedbackSubtext.textContent = "Väntar på rättning...";
-
-    if (isDryRun) { clearInterval(timerInterval); showRoundResult(); }
-    else {
-        const lat = playerGuessMarker.getLatLng().lat; const lng = playerGuessMarker.getLatLng().lng;
-        // Host will see this via the listener above
-        db.ref(`rooms/${currentRoomId}/guesses/${currentPlayer.id}`).set({ lat, lng });
-    }
-});
-
-function timeIsUp() {
-    disableMapInteraction(); questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
-    feedbackText.textContent = "Tiden ute!"; feedbackSubtext.textContent = "Hämtar resultat...";
-    if (isGlobalHost || isDryRun) showRoundResult();
-    else setTimeout(showRoundResult, 1000);
-}
-
-// ROUND RESULT (Summary)
-function showRoundResult() {
-    const question = gameQuestions[currentQIndex];
-    const correctLatLng = question.correctAnswer;
-    correctMarker = L.marker([correctLatLng.lat, correctLatLng.lng]).addTo(map);
-
-    // Calculate My Distance (For Player)
-    let myDistMeter = 0;
-    if (!isGlobalHost && playerGuessMarker) {
-        const guessLatLng = playerGuessMarker.getLatLng();
-        const distKm = calculateDistance(correctLatLng.lat, correctLatLng.lng, guessLatLng.lat, guessLatLng.lng);
-        myDistMeter = Math.round(distKm * 1000);
-
-        answerLine = L.polyline([guessLatLng, correctLatLng], { color: 'red', dashArray: '5, 10' }).addTo(map);
-        map.fitBounds(answerLine.getBounds(), { padding: [50, 50] });
-    } else if (!isGlobalHost) {
-        myDistMeter = 20000000; // Max penalty
+        timerText.textContent = timeLeft;
+        if (timerInterval) clearInterval(timerInterval);
+        const totalTime = timeLeft;
+        timerInterval = setInterval(() => {
+            timeLeft--; timerText.textContent = timeLeft; timerFill.style.width = (timeLeft / totalTime * 100) + "%";
+            if (timeLeft <= 0) { clearInterval(timerInterval); timeIsUp(); }
+        }, 1000);
     }
 
-    // Update Score locally
-    if (!isGlobalHost || isDryRun) {
-        currentPlayer.score += myDistMeter;
-        if (!isDryRun) db.ref(`rooms/${currentRoomId}/players/${currentPlayer.id}/score`).set(currentPlayer.score);
-        playerScoreDisplay.textContent = `Avstånd: ${formatDistance(currentPlayer.score)}`;
+    submitGuessBtn.addEventListener('click', () => {
+        if (!tempMarker) { alert("Välj plats!"); return; }
+        playerGuessMarker = tempMarker; tempMarker = null; disableMapInteraction();
+        questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
+        feedbackOverlay.classList.remove('hidden'); feedbackText.textContent = "Registrerat!"; feedbackSubtext.textContent = "Väntar på rättning...";
+
+        if (isDryRun) { clearInterval(timerInterval); showRoundResult(); }
+        else {
+            const lat = playerGuessMarker.getLatLng().lat; const lng = playerGuessMarker.getLatLng().lng;
+            // Host will see this via the listener above
+            db.ref(`rooms/${currentRoomId}/guesses/${currentPlayer.id}`).set({ lat, lng });
+        }
+    });
+
+    function timeIsUp() {
+        disableMapInteraction(); questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
+        feedbackText.textContent = "Tiden ute!"; feedbackSubtext.textContent = "Hämtar resultat...";
+        if (isGlobalHost || isDryRun) showRoundResult();
+        else setTimeout(showRoundResult, 1000);
     }
 
-    // Populate Round Summary List (For Everyone)
-    const summaryContainer = document.getElementById('round-summary-container');
-    const summaryList = document.getElementById('round-results-list');
-    summaryContainer.classList.remove('hidden'); summaryList.innerHTML = "Laddar resultat...";
+    // ROUND RESULT (Summary)
+    function showRoundResult() {
+        const question = gameQuestions[currentQIndex];
+        const correctLatLng = question.correctAnswer;
+        correctMarker = L.marker([correctLatLng.lat, correctLatLng.lng]).addTo(map);
 
-    // Fetch all players and guesses to build the list
-    if (isDryRun) {
-        summaryList.innerHTML = `<li><strong>Jag</strong>: ${formatDistance(myDistMeter)}</li>`;
-        feedbackText.textContent = "Resultat (Runda)"; feedbackSubtext.textContent = "";
-    } else {
-        Promise.all([
-            db.ref(`rooms/${currentRoomId}/players`).once('value'),
-            db.ref(`rooms/${currentRoomId}/guesses`).once('value')
-        ]).then(([pSnap, gSnap]) => {
-            const players = pSnap.val() || {};
-            const guesses = gSnap.val() || {};
-            summaryList.innerHTML = "";
+        // Calculate My Distance (For Player)
+        let myDistMeter = 0;
+        if (!isGlobalHost && playerGuessMarker) {
+            const guessLatLng = playerGuessMarker.getLatLng();
+            const distKm = calculateDistance(correctLatLng.lat, correctLatLng.lng, guessLatLng.lat, guessLatLng.lng);
+            myDistMeter = Math.round(distKm * 1000);
 
-            Object.values(players).forEach(p => {
-                const g = guesses[p.id]; // Assuming player object has ID or mapped key
-                // Note: p is {name, score}, key is ID. We need ID.
-                // Fix: Player loop needs Keys. 
+            answerLine = L.polyline([guessLatLng, correctLatLng], { color: 'red', dashArray: '5, 10' }).addTo(map);
+            map.fitBounds(answerLine.getBounds(), { padding: [50, 50] });
+        } else if (!isGlobalHost) {
+            myDistMeter = 20000000; // Max penalty
+        }
+
+        // Update Score locally
+        if (!isGlobalHost || isDryRun) {
+            currentPlayer.score += myDistMeter;
+            if (!isDryRun) db.ref(`rooms/${currentRoomId}/players/${currentPlayer.id}/score`).set(currentPlayer.score);
+            playerScoreDisplay.textContent = `Avstånd: ${formatDistance(currentPlayer.score)}`;
+        }
+
+        // Populate Round Summary List (For Everyone)
+        const summaryContainer = document.getElementById('round-summary-container');
+        const summaryList = document.getElementById('round-results-list');
+        summaryContainer.classList.remove('hidden'); summaryList.innerHTML = "Laddar resultat...";
+
+        // Fetch all players and guesses to build the list
+        if (isDryRun) {
+            summaryList.innerHTML = `<li><strong>Jag</strong>: ${formatDistance(myDistMeter)}</li>`;
+            feedbackText.textContent = "Resultat (Runda)"; feedbackSubtext.textContent = "";
+        } else {
+            Promise.all([
+                db.ref(`rooms/${currentRoomId}/players`).once('value'),
+                db.ref(`rooms/${currentRoomId}/guesses`).once('value')
+            ]).then(([pSnap, gSnap]) => {
+                const players = pSnap.val() || {};
+                const guesses = gSnap.val() || {};
+                summaryList.innerHTML = "";
+
+                Object.values(players).forEach(p => {
+                    const g = guesses[p.id]; // Assuming player object has ID or mapped key
+                    // Note: p is {name, score}, key is ID. We need ID.
+                    // Fix: Player loop needs Keys. 
+                });
+
+                // Re-do loop structure for Keys
+                summaryList.innerHTML = "";
+                Object.keys(players).forEach(pid => {
+                    const p = players[pid];
+                    const g = guesses[pid];
+                    let dist = 20000000;
+                    if (g) {
+                        const km = calculateDistance(correctLatLng.lat, correctLatLng.lng, g.lat, g.lng);
+                        dist = Math.round(km * 1000);
+                    }
+                    const li = document.createElement('li');
+                    li.style.borderBottom = "1px solid rgba(255,255,255,0.1)"; li.style.padding = "5px 0";
+                    li.innerHTML = `<strong>${p.name}</strong>: ${formatDistance(dist)}`;
+                    summaryList.appendChild(li);
+                });
             });
 
-            // Re-do loop structure for Keys
-            summaryList.innerHTML = "";
-            Object.keys(players).forEach(pid => {
-                const p = players[pid];
-                const g = guesses[pid];
-                let dist = 20000000;
-                if (g) {
-                    const km = calculateDistance(correctLatLng.lat, correctLatLng.lng, g.lat, g.lng);
-                    dist = Math.round(km * 1000);
-                }
-                const li = document.createElement('li');
-                li.style.borderBottom = "1px solid rgba(255,255,255,0.1)"; li.style.padding = "5px 0";
-                li.innerHTML = `<strong>${p.name}</strong>: ${formatDistance(dist)}`;
-                summaryList.appendChild(li);
+            feedbackText.textContent = "Resultat"; feedbackSubtext.textContent = `Rätt svar: ${question.text}`;
+        }
+
+        if (isGlobalHost) {
+            hostResultControls.classList.remove('hidden'); // Show "Visa Highscore"
+        } else {
+            hostResultControls.classList.add('hidden');
+        }
+    }
+
+    function formatDistance(meters) {
+        if (meters > 10000) return Math.round(meters / 1000) + " km";
+        return meters + " m";
+    }
+
+    // Ensure this button only goes to Highscore
+    gotoLeaderboardBtn.onclick = () => {
+        feedbackOverlay.classList.add('hidden');
+        leaderboardOverlay.classList.remove('hidden');
+        liveLeaderboardList.innerHTML = "Laddar...";
+
+        if (isDryRun) {
+            liveLeaderboardList.innerHTML = `<li><strong>Jag</strong>: ${formatDistance(currentPlayer.score)}</li>`;
+        } else {
+            db.ref(`rooms/${currentRoomId}/players`).once('value', snap => {
+                const players = snap.val() || {};
+                const sorted = Object.values(players).sort((a, b) => a.score - b.score);
+                liveLeaderboardList.innerHTML = "";
+                sorted.forEach(p => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong>${p.name}</strong>: ${formatDistance(p.score)}`;
+                    liveLeaderboardList.appendChild(li);
+                });
             });
-        });
+        }
+    };
 
-        feedbackText.textContent = "Resultat"; feedbackSubtext.textContent = `Rätt svar: ${question.text}`;
+    // "Nästa Fråga" is NOW ONLY ON LEADERBOARD
+    nextQuestionBtn.addEventListener('click', () => {
+        leaderboardOverlay.classList.add('hidden');
+        currentQIndex++;
+        if (isDryRun) startQuestionPhasePrep();
+        else {
+            db.ref(`rooms/${currentRoomId}`).update({ currentQuestionIndex: currentQIndex, questionPhase: 'prep' });
+            // Clear Guesses for next round!
+            db.ref(`rooms/${currentRoomId}/guesses`).remove();
+            startQuestionPhasePrep();
+        }
+    });
+
+    function endGame() {
+        feedbackOverlay.classList.remove('hidden'); leaderboardOverlay.classList.add('hidden'); waitOverlay.classList.add('hidden');
+        feedbackText.textContent = "SPELET SLUT"; feedbackSubtext.textContent = "";
+        hostResultControls.classList.remove('hidden');
+        gotoLeaderboardBtn.textContent = "Avsluta / Starta Om"; gotoLeaderboardBtn.classList.remove('hidden');
+        directNextBtn.classList.add('hidden'); // Hide next, only Finish/Restart
+        gotoLeaderboardBtn.onclick = () => window.location.reload();
     }
-
-    if (isGlobalHost) {
-        hostResultControls.classList.remove('hidden'); // Show "Visa Highscore"
-    } else {
-        hostResultControls.classList.add('hidden');
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return R * c;
     }
-}
-
-function formatDistance(meters) {
-    if (meters > 10000) return Math.round(meters / 1000) + " km";
-    return meters + " m";
-}
-
-// Ensure this button only goes to Highscore
-gotoLeaderboardBtn.onclick = () => {
-    feedbackOverlay.classList.add('hidden');
-    leaderboardOverlay.classList.remove('hidden');
-    liveLeaderboardList.innerHTML = "Laddar...";
-
-    if (isDryRun) {
-        liveLeaderboardList.innerHTML = `<li><strong>Jag</strong>: ${formatDistance(currentPlayer.score)}</li>`;
-    } else {
-        db.ref(`rooms/${currentRoomId}/players`).once('value', snap => {
-            const players = snap.val() || {};
-            const sorted = Object.values(players).sort((a, b) => a.score - b.score);
-            liveLeaderboardList.innerHTML = "";
-            sorted.forEach(p => {
-                const li = document.createElement('li');
-                li.innerHTML = `<strong>${p.name}</strong>: ${formatDistance(p.score)}`;
-                liveLeaderboardList.appendChild(li);
-            });
-        });
-    }
-};
-
-// "Nästa Fråga" is NOW ONLY ON LEADERBOARD
-nextQuestionBtn.addEventListener('click', () => {
-    leaderboardOverlay.classList.add('hidden');
-    currentQIndex++;
-    if (isDryRun) startQuestionPhasePrep();
-    else {
-        db.ref(`rooms/${currentRoomId}`).update({ currentQuestionIndex: currentQIndex, questionPhase: 'prep' });
-        // Clear Guesses for next round!
-        db.ref(`rooms/${currentRoomId}/guesses`).remove();
-        startQuestionPhasePrep();
-    }
-});
-
-function endGame() {
-    feedbackOverlay.classList.remove('hidden'); leaderboardOverlay.classList.add('hidden'); waitOverlay.classList.add('hidden');
-    feedbackText.textContent = "SPELET SLUT"; feedbackSubtext.textContent = "";
-    hostResultControls.classList.remove('hidden');
-    gotoLeaderboardBtn.textContent = "Avsluta / Starta Om"; gotoLeaderboardBtn.classList.remove('hidden');
-    directNextBtn.classList.add('hidden'); // Hide next, only Finish/Restart
-    gotoLeaderboardBtn.onclick = () => window.location.reload();
-}
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return R * c;
-}
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get('room');
-if (roomParam) { roomCodeInput.value = roomParam; }
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomParam = urlParams.get('room');
+    if (roomParam) { roomCodeInput.value = roomParam; }
