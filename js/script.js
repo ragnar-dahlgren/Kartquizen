@@ -734,23 +734,39 @@ function showRoundResult() {
 
     // Calculate My Distance (For Player)
     let myDistMeter = 0;
+    let debugMsg = "";
+
     if (!isGlobalHost && playerGuessMarker) {
         const guessLatLng = playerGuessMarker.getLatLng();
         const distKm = calculateDistance(correctLatLng.lat, correctLatLng.lng, guessLatLng.lat, guessLatLng.lng);
         myDistMeter = Math.round(distKm * 1000);
 
+        debugMsg += `Guess: ${guessLatLng.lat.toFixed(2)},${guessLatLng.lng.toFixed(2)}\n`;
+        debugMsg += `Correct: ${correctLatLng.lat},${correctLatLng.lng}\n`;
+        debugMsg += `Dist: ${myDistMeter}`;
+
         answerLine = L.polyline([guessLatLng, correctLatLng], { color: 'red', dashArray: '5, 10' }).addTo(map);
         map.fitBounds(answerLine.getBounds(), { padding: [50, 50] });
     } else if (!isGlobalHost) {
         myDistMeter = 20000000; // Max penalty
+        debugMsg = "No Guess Marker! Penalty 20,000km.";
     }
 
     // Update Score locally
     if (!isGlobalHost || isDryRun) {
+        const oldScore = currentPlayer.score;
         currentPlayer.score += myDistMeter;
-        if (!isDryRun) db.ref(`rooms/${currentRoomId}/players/${currentPlayer.id}/score`).set(currentPlayer.score);
+
+        // DEBUG ALERT
+        console.log("Score Upd: " + oldScore + " -> " + currentPlayer.score);
+        // alert(`DEBUG: Dist=${myDistMeter}, Old=${oldScore}, New=${currentPlayer.score}\n${debugMsg}`);
+
+        if (!isDryRun) {
+            db.ref(`rooms/${currentRoomId}/players/${currentPlayer.id}/score`).set(currentPlayer.score)
+                .then(() => console.log("Score saved to FB"))
+                .catch(e => alert("SAVE ERROR: " + e));
+        }
         playerScoreDisplay.textContent = `Avstånd: ${formatDistance(currentPlayer.score)}`;
-        // Show result on screen immediately for player
         feedbackSubtext.textContent = `Du var ${formatDistance(myDistMeter)} ifrån!`;
     }
 
