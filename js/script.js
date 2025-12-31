@@ -964,10 +964,23 @@ function endGame() {
         content.appendChild(btn);
     }
 }
+// Robust Distance Calc (Forces numbers)
 function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return R * c;
+    const l1 = parseFloat(lat1);
+    const ln1 = parseFloat(lon1);
+    const l2 = parseFloat(lat2);
+    const ln2 = parseFloat(lon2);
+
+    if (isNaN(l1) || isNaN(ln1) || isNaN(l2) || isNaN(ln2)) return 20000;
+
+    const R = 6371;
+    const dLat = (l2 - l1) * Math.PI / 180;
+    const dLon = (ln2 - ln1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(l1 * Math.PI / 180) * Math.cos(l2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('room');
