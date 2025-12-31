@@ -441,7 +441,13 @@ lobbyStartBtn.addEventListener('click', () => {
     if (!gameQuestions || gameQuestions.length === 0) {
         lobbyStartBtn.textContent = "Laddar...";
         db.ref(`rooms/${currentRoomId}/questions`).once('value', qSnap => {
-            gameQuestions = qSnap.val();
+            const data = qSnap.val();
+            if (!data || data.length === 0) {
+                alert("Inga frågor hittades! Kan inte starta.");
+                lobbyStartBtn.textContent = "Starta Spelet"; // Reset
+                return;
+            }
+            gameQuestions = data;
             proceedStart();
         });
     } else {
@@ -828,12 +834,29 @@ nextQuestionBtn.addEventListener('click', () => {
 });
 
 function endGame() {
-    feedbackOverlay.classList.remove('hidden'); leaderboardOverlay.classList.add('hidden'); waitOverlay.classList.add('hidden');
-    feedbackText.textContent = "SPELET SLUT"; feedbackSubtext.textContent = "";
-    hostResultControls.classList.remove('hidden');
-    gotoLeaderboardBtn.textContent = "Avsluta / Starta Om"; gotoLeaderboardBtn.classList.remove('hidden');
-    directNextBtn.classList.add('hidden'); // Hide next, only Finish/Restart
-    gotoLeaderboardBtn.onclick = () => window.location.reload();
+    feedbackOverlay.classList.remove('hidden');
+    leaderboardOverlay.classList.add('hidden');
+    waitOverlay.classList.add('hidden');
+
+    feedbackText.textContent = "SPELET SLUT";
+    feedbackSubtext.textContent = "Tack för att ni spelade!";
+
+    // SHOW HOST EXIT BUTTON
+    if (isGlobalHost) {
+        const bar = document.getElementById('host-action-bar');
+        const content = document.getElementById('host-action-content');
+        bar.classList.remove('hidden');
+        content.innerHTML = "";
+
+        const btn = document.createElement('button');
+        btn.className = "btn success";
+        btn.innerHTML = "🏁 Avsluta & Gå Till Redigering";
+        btn.onclick = () => {
+            db.ref(`rooms/${currentRoomId}/status`).set('finished');
+            returnToHostScreen();
+        };
+        content.appendChild(btn);
+    }
 }
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
