@@ -125,8 +125,7 @@ const playerScoreDisplay = document.getElementById('player-score');
 const connectedRef = db.ref(".info/connected");
 connectedRef.on("value", (snap) => {
     if (snap.val() === true) {
-        statusMessage.textContent = "Ansluten till server ✓";
-        statusMessage.classList.add('status-connected');
+        // statusMessage removed from UI
         joinRoomBtn.disabled = false;
 
         // CHECK PERSISTENCE (Fix for Host Reload)
