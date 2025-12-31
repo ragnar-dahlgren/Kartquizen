@@ -428,7 +428,10 @@ function enterLobby(roomId, isHost) {
     });
 }
 
+let currentQuestionPhase = 'init';
+
 function handlePhase(phase) {
+    currentQuestionPhase = phase;
     if (phase === 'prep') startQuestionPhasePrep();
     else if (phase === 'preview') startQuestionPhase1();
     else if (phase === 'action') startQuestionPhase2();
@@ -455,15 +458,51 @@ lobbyStartBtn.addEventListener('click', () => {
     }
 
     function proceedStart() {
-        db.ref(`rooms/${currentRoomId}`).update({ status: 'game_active', currentQuestionIndex: 0, questionPhase: 'prep' });
-        // Use true (restoring mode) to avoid Double Execution. 
-        // We let the Firebase Listener trigger startQuestionPhasePrep().
-        startGameFlow(true);
+        // Set flag to active
+        db.ref(`rooms/${currentRoomId}`).update({
+            status: 'game_active',
+            currentQuestionIndex: 0,
+            questionPhase: 'prep'
+        }).then(() => {
+            // RELOAD PAGE to ensure clean state (Fixes White Screen)
+            console.log("Starting Game... Reloading for clean state.");
+            window.location.reload();
+        });
     }
 });
 
 function startGameFlow(restoring = false) {
-    lobbyScreen.classList.add('hidden'); gameScreen.classList.remove('hidden'); testControls.classList.add('hidden'); initMap(false);
+    lobbyScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    testControls.classList.add('hidden');
+    initMap(false);
+
+    // Create Top Status Bar (Debug/Info)
+    let statusBar = document.getElementById('top-status-bar');
+    if (!statusBar) {
+        statusBar = document.createElement('div');
+        statusBar.id = 'top-status-bar';
+        statusBar.style.position = 'fixed';
+        statusBar.style.top = '0';
+        statusBar.style.left = '0';
+        statusBar.style.width = '100%';
+        statusBar.style.height = '24px';
+        statusBar.style.background = 'rgba(0,0,0,0.8)';
+        statusBar.style.color = '#ffeb3b';
+        statusBar.style.fontSize = '12px';
+        statusBar.style.display = 'flex';
+        statusBar.style.justifyContent = 'center';
+        statusBar.style.alignItems = 'center';
+        statusBar.style.zIndex = '9999999';
+        statusBar.style.pointerEvents = 'none';
+        document.body.appendChild(statusBar);
+    }
+
+    setInterval(() => {
+        const h = isGlobalHost ? "LEKLEDARE" : "SPELARE";
+        const q = (gameQuestions && gameQuestions.length > 0) ? `${currentQIndex + 1}/${gameQuestions.length}` : "-";
+        statusBar.textContent = `${h} | Fas: ${currentQuestionPhase || '-'} | Fråga: ${q}`;
+    }, 1000);
 
     // FORCE ZOOM OUT FOR PLAYERS
     if (map) map.setView([20, 0], 2);
