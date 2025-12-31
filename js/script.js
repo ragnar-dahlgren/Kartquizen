@@ -693,8 +693,23 @@ submitGuessBtn.addEventListener('click', () => {
 });
 
 function timeIsUp() {
-    disableMapInteraction(); questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
-    feedbackText.textContent = "Tiden ute!"; feedbackSubtext.textContent = "Hämtar resultat...";
+    // Auto-confirm guess if marker exists but not submitted
+    if (!isGlobalHost && !isDryRun) {
+        if (!playerGuessMarker && tempMarker) {
+            console.log("Auto-submitting unconfirmed guess...");
+            playerGuessMarker = tempMarker;
+            tempMarker = null;
+            const lat = playerGuessMarker.getLatLng().lat;
+            const lng = playerGuessMarker.getLatLng().lng;
+            db.ref(`rooms/${currentRoomId}/guesses/${currentPlayer.id}`).set({ lat, lng });
+        }
+    }
+
+    disableMapInteraction();
+    questionOverlay.classList.add('hidden');
+    mapPickerUI.classList.add('hidden');
+    feedbackText.textContent = "Tiden ute!";
+    feedbackSubtext.textContent = "Hämtar resultat...";
     if (isGlobalHost || isDryRun) showRoundResult();
     else setTimeout(showRoundResult, 1000);
 }
@@ -735,6 +750,8 @@ function showRoundResult() {
         currentPlayer.score += myDistMeter;
         if (!isDryRun) db.ref(`rooms/${currentRoomId}/players/${currentPlayer.id}/score`).set(currentPlayer.score);
         playerScoreDisplay.textContent = `Avstånd: ${formatDistance(currentPlayer.score)}`;
+        // Show result on screen immediately for player
+        feedbackSubtext.textContent = `Du var ${formatDistance(myDistMeter)} ifrån!`;
     }
 
     // Populate Round Summary List (For Everyone)
@@ -858,15 +875,14 @@ gotoLeaderboardBtn.onclick = () => { // Or the function that handles this
         db.ref(`rooms/${currentRoomId}/players`).orderByChild('score').once('value', (snap) => {
             const players = [];
             snap.forEach(c => players.push(c.val()));
-            // Sort Descending Score (High is good? Or low distance? Logic says Score is points)
-            // Current logic adds points based on closeness. So High Score is winner.
-            players.sort((a, b) => b.score - a.score);
+            // Sort Ascending (Lowest Distance wins)
+            players.sort((a, b) => a.score - b.score);
 
             liveLeaderboardList.innerHTML = "";
             let rank = 1;
             players.forEach(p => {
                 const li = document.createElement('li');
-                li.innerHTML = `<strong>#${rank} ${p.name}</strong>: ${p.score} p`;
+                li.innerHTML = `<strong>#${rank} ${p.name}</strong>: ${formatDistance(p.score)}`;
                 if (rank === 1) li.style.color = "#ffd700"; // Gold
                 liveLeaderboardList.appendChild(li);
                 rank++;
