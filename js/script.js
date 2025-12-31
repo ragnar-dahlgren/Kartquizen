@@ -478,7 +478,12 @@ function startQuestionPhasePrep() {
     map.eachLayer((layer) => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
 
     waitOverlay.classList.remove('hidden');
-    waitText.textContent = "Snart börjar spelet. Sätt ut nålen så nära målet som möjligt!";
+
+    if (currentQIndex === 0) {
+        waitText.textContent = "Snart börjar spelet. Sätt ut nålen så nära målet som möjligt!";
+    } else {
+        waitText.textContent = `Gör dig redo för fråga ${currentQIndex + 1}...`;
+    }
 
     updateHostControls('prep');
 }
