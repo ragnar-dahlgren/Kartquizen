@@ -476,13 +476,32 @@ function startGameFlow(restoring = false) {
 }
 
 // --- PHASE 0: PREP (Wait) ---
+// --- PHASE 0: PREP (Wait) ---
 function startQuestionPhasePrep() {
     console.log("Phase: PREP");
-    if (currentQIndex >= gameQuestions.length) { endGame(); return; }
-    if (map) map.setView([20, 0], 2); // Force Zoom Out
+    // Safety Force Show Game Screen
+    gameScreen.classList.remove('hidden');
+    lobbyScreen.classList.add('hidden');
 
-    feedbackOverlay.classList.add('hidden'); leaderboardOverlay.classList.add('hidden');
-    questionOverlay.classList.add('hidden'); mapPickerUI.classList.add('hidden');
+    // Safety check for empty questions
+    if (!gameQuestions || gameQuestions.length === 0) {
+        alert("CRITICAL ERROR: No questions loaded. Please reload.");
+        location.reload();
+        return;
+    }
+
+    if (currentQIndex >= gameQuestions.length) { endGame(); return; }
+
+    if (map) {
+        map.invalidateSize(); // Fix map rendering glitches
+        map.setView([20, 0], 2);
+    }
+
+    // Reset UI State
+    feedbackOverlay.classList.add('hidden');
+    leaderboardOverlay.classList.add('hidden');
+    questionOverlay.classList.add('hidden');
+    mapPickerUI.classList.add('hidden');
 
     // Clear map layers
     if (playerGuessMarker) map.removeLayer(playerGuessMarker);
@@ -491,12 +510,21 @@ function startQuestionPhasePrep() {
     if (tempMarker) map.removeLayer(tempMarker);
     map.eachLayer((layer) => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
 
-    waitOverlay.classList.remove('hidden');
+    // Show Wait Overlay
+    const waitOverlay = document.getElementById('wait-overlay'); // Safe fetch
+    if (waitOverlay) {
+        waitOverlay.classList.remove('hidden');
+        waitOverlay.style.display = "block"; // Force
+        waitOverlay.style.zIndex = "2000"; // Force on top of map
+    }
 
-    if (currentQIndex === 0) {
-        waitText.textContent = "Snart börjar spelet. Sätt ut nålen så nära målet som möjligt!";
-    } else {
-        waitText.textContent = `Gör dig redo för fråga ${currentQIndex + 1}...`;
+    const waitText = document.getElementById('wait-text');
+    if (waitText) {
+        if (currentQIndex === 0) {
+            waitText.textContent = "Snart börjar spelet. Sätt ut nålen så nära målet som möjligt!";
+        } else {
+            waitText.textContent = `Gör dig redo för fråga ${currentQIndex + 1}...`;
+        }
     }
 
     updateHostControls('prep');
@@ -505,18 +533,20 @@ function startQuestionPhasePrep() {
 // --- PHASE 1: PREVIEW (Read) ---
 function startQuestionPhase1() {
     console.log("Phase: PREVIEW");
-    waitOverlay.classList.add('hidden');
-    questionOverlay.classList.remove('hidden'); questionBox.classList.remove('minimized');
+    const waitOverlay = document.getElementById('wait-overlay');
+    if (waitOverlay) waitOverlay.classList.add('hidden');
+
+    questionOverlay.classList.remove('hidden');
+    questionBox.classList.remove('minimized');
 
     const question = gameQuestions[currentQIndex];
     gameQuestionText.textContent = question.text;
     if (question.image) { gameQuestionImage.src = question.image; gameImageContainer.classList.remove('hidden'); gameImageContainer.classList.remove('mini-img'); }
     else { gameImageContainer.classList.add('hidden'); }
 
-    // Reset Timer
     const timerDisplay = document.getElementById('big-timer');
     if (timerDisplay) timerDisplay.textContent = "";
-    timerText.textContent = ""; timerFill.style.width = "100%";
+    if (timerFill) timerFill.style.width = "100%";
 
     updateHostControls('preview');
 }
@@ -561,13 +591,18 @@ function updateHostControls(phase) {
     const bar = document.getElementById('host-action-bar');
     const content = document.getElementById('host-action-content');
 
-    if (!isGlobalHost && !isDryRun) {
+    if (!bar || !content) return;
+
+    // FORCE DISPLAY IF HOST
+    if (isGlobalHost || isDryRun) {
+        bar.classList.remove('hidden');
+        bar.style.display = "flex"; // Force Flex
+        bar.style.zIndex = "2147483647"; // MAX Z-Index
+    } else {
         bar.classList.add('hidden');
         return;
     }
 
-    // Show Bar for Host
-    bar.classList.remove('hidden');
     content.innerHTML = ""; // Clear previous buttons
 
     if (phase === 'prep') {
