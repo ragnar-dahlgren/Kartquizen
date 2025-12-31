@@ -661,9 +661,21 @@ function timeIsUp() {
 }
 
 // ROUND RESULT (Summary)
+// ROUND RESULT (Summary)
 function showRoundResult() {
     const question = gameQuestions[currentQIndex];
-    const correctLatLng = question.correctAnswer;
+    if (!question) {
+        console.error("Critical: No question found for index " + currentQIndex);
+        return;
+    }
+
+    let correctLatLng = question.correctAnswer;
+    // Safety Fallback if question/coords are bad
+    if (!correctLatLng || typeof correctLatLng.lat === 'undefined') {
+        console.error("Missing correctAnswer for question!");
+        correctLatLng = { lat: 0, lng: 0 };
+    }
+
     correctMarker = L.marker([correctLatLng.lat, correctLatLng.lng]).addTo(map);
 
     // Calculate My Distance (For Player)
@@ -704,30 +716,32 @@ function showRoundResult() {
             const guesses = gSnap.val() || {};
             summaryList.innerHTML = "";
 
-            Object.values(players).forEach(p => {
-                const g = guesses[p.id]; // Assuming player object has ID or mapped key
-                // Note: p is {name, score}, key is ID. We need ID.
-                // Fix: Player loop needs Keys. 
-            });
-
-            // Re-do loop structure for Keys
-            summaryList.innerHTML = "";
+            // Loop through Players
             Object.keys(players).forEach(pid => {
                 const p = players[pid];
                 const g = guesses[pid];
                 let dist = 20000000;
-                if (g) {
+                if (g && correctLatLng.lat !== 0) {
+                    // Only calc distance if we have a valid correct answer
                     const km = calculateDistance(correctLatLng.lat, correctLatLng.lng, g.lat, g.lng);
                     dist = Math.round(km * 1000);
+                } else if (!g) {
+                    dist = 20000000; // No guess
                 }
+
                 const li = document.createElement('li');
                 li.style.borderBottom = "1px solid rgba(255,255,255,0.1)"; li.style.padding = "5px 0";
                 li.innerHTML = `<strong>${p.name}</strong>: ${formatDistance(dist)}`;
                 summaryList.appendChild(li);
             });
-        });
 
-        feedbackText.textContent = "Resultat"; feedbackSubtext.textContent = `Rätt svar: ${question.text}`;
+            feedbackText.textContent = "Resultat";
+            feedbackSubtext.textContent = `Rätt svar: ${question.text}`;
+        }).catch(err => {
+            console.error("Error fetching results:", err);
+            summaryList.innerHTML = "<li>Kunde inte hämta resultat.</li>";
+            feedbackText.textContent = "Fel vid Resultat";
+        });
     }
 
     if (isGlobalHost) {
