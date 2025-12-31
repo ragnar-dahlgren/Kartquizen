@@ -688,7 +688,6 @@ function showRoundResult() {
     }
 
     if (isGlobalHost) {
-        // hostResultControls.classList.remove('hidden'); // OLD OVERLAY CONTROLS
         const bar = document.getElementById('host-action-bar');
         const content = document.getElementById('host-action-content');
         bar.classList.remove('hidden');
@@ -698,12 +697,14 @@ function showRoundResult() {
         btn.className = "btn success";
         btn.innerHTML = "Visa Highscore →";
         btn.onclick = () => {
-            gotoLeaderboardBtn.click(); // Reuse logic
+            // Logic to show leaderboard
+            feedbackOverlay.classList.add('hidden');
+            leaderboardOverlay.classList.remove('hidden');
+            updateHostControls('leaderboard'); // We might need a generic update or just manual here as before
+            // Trigger the manual leaderboard setup:
+            gotoLeaderboardBtn.click();
         };
         content.appendChild(btn);
-
-    } else {
-        hostResultControls.classList.add('hidden');
     }
 }
 
