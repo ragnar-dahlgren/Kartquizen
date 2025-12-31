@@ -456,7 +456,9 @@ lobbyStartBtn.addEventListener('click', () => {
 
     function proceedStart() {
         db.ref(`rooms/${currentRoomId}`).update({ status: 'game_active', currentQuestionIndex: 0, questionPhase: 'prep' });
-        startGameFlow();
+        // Use true (restoring mode) to avoid Double Execution. 
+        // We let the Firebase Listener trigger startQuestionPhasePrep().
+        startGameFlow(true);
     }
 });
 
