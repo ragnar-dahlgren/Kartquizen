@@ -437,8 +437,22 @@ function handlePhase(phase) {
 
 lobbyStartBtn.addEventListener('click', () => {
     if (!currentRoomId) return;
-    db.ref(`rooms/${currentRoomId}`).update({ status: 'game_active', currentQuestionIndex: 0, questionPhase: 'prep' });
-    startGameFlow();
+
+    // Safety: If host reloaded, questions might be missing. Fetch if needed.
+    if (!gameQuestions || gameQuestions.length === 0) {
+        lobbyStartBtn.textContent = "Laddar...";
+        db.ref(`rooms/${currentRoomId}/questions`).once('value', qSnap => {
+            gameQuestions = qSnap.val();
+            proceedStart();
+        });
+    } else {
+        proceedStart();
+    }
+
+    function proceedStart() {
+        db.ref(`rooms/${currentRoomId}`).update({ status: 'game_active', currentQuestionIndex: 0, questionPhase: 'prep' });
+        startGameFlow();
+    }
 });
 
 function startGameFlow(restoring = false) {
